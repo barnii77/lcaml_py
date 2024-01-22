@@ -8,8 +8,11 @@ However, I might come back to LCaml in the future and write an interpreter in Ru
 
 # Components of the interpreter
 Lexer: CODE -> Tokens
+
 Parser: Tokens -> AST
+
 IR generator (?): AST -> IR
+
 Interpreter: AST | IR -> EXECUTE
 
 # Resources
