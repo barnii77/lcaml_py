@@ -11,3 +11,6 @@ Lexer: CODE -> Tokens
 Parser: Tokens -> AST
 IR generator (?): AST -> IR
 Interpreter: AST | IR -> EXECUTE
+
+# Resources
+[CodePulse](https://www.youtube.com/watch?v=Eythq9848Fg&list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD)
