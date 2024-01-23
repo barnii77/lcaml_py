@@ -7,6 +7,7 @@ class LexError(Exception):
 
 class Token:
     """A token is a tuple of (type, value)"""
+
     def __init__(self, type: str, value: str):
         self.type = type
         self.value = value
@@ -20,6 +21,7 @@ class Token:
 
 class Syntax:
     """Contains a bunch of regexes for matching tokens"""
+
     def __init__(self):
         self.let = r"let\s"
         self.identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
@@ -29,34 +31,29 @@ class Syntax:
         self.equals = r"="
         self.semicolon = r";"
         self.comment = r"--.*\n"
-        operators = ('+', '-', '*', '/', '%', '!', '==', '!=', '<', '>', '~', '<=', '>=', '||', '&&', '|', '&')
-        self.operator = '|'.join(f"\\{op}" for op in operators)
+        operators = (
+            "+",
+            "-",
+            "*",
+            "/",
+            "%",
+            "!",
+            "==",
+            "!=",
+            "<",
+            ">",
+            "~",
+            "<=",
+            ">=",
+            "||",
+            "&&",
+            "|",
+            "&",
+        )
+        self.operator = "|".join(f"\\{op}" for op in operators)
 
     def patterns(self):
         return vars(self).items()
-        # return [self.let, self.identifier, self.integer, self.floating_point, self.string_literal]
-
-
-# class LexState:
-#     any: bool = False
-#     string_literal: bool = False
-#     integer: bool = False
-#     floating_point: bool = False
-#     identifier: bool = False
-#     symbol: bool = False
-#     comment: bool = False
-#
-#     position: int = 0
-#
-#     def __init__(self):
-#         self.any = True
-#         self.string_literal = False
-#         self.integer = False
-#         self.floating_point = False
-#         self.identifier = False
-#         self.symbol = False
-#         self.comment = False
-#         self.position = 0
 
 
 class Lexer:
@@ -65,17 +62,21 @@ class Lexer:
         self.syntax = syntax
         # self.state = LexState()
         self.num_symbols = len(code)
-        self.position = 0
         self.tokens = []
 
     def __call__(self):
-        code = self.code[self.position:]
+        if self.tokens:  # if already lexed, just return the tokens
+            return self.tokens
 
-        while self.position < self.num_symbols and code.strip() != "":
+        code = self.code
+
+        while code.strip() != "":
             # match all the patterns in the syntax
             for kind, pattern in self.syntax.patterns():
                 whitespaces = r"\s*"
-                pattern = re.compile(f"^{whitespaces}({pattern}){whitespaces}.*")  # assert pattern is at the start of the string
+                pattern = re.compile(
+                    f"^{whitespaces}({pattern}){whitespaces}.*"
+                )  # assert pattern is at the start of the string
                 m = pattern.match(code)
                 if m:
                     break
@@ -88,7 +89,6 @@ class Lexer:
 
             # increment position
             token_len = m.end(1)
-            self.position += token_len
             code = code[token_len:]
 
         return self.tokens
