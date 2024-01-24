@@ -1,5 +1,6 @@
 import unittest
-from lexer import Lexer, Syntax, TokenKind, LexError, Token
+from lexer import Lexer, Syntax, LexError
+from token import Token, TokenKind
 
 
 class TestLexer(unittest.TestCase):
@@ -16,49 +17,49 @@ class TestLexer(unittest.TestCase):
         tokens = lexer()
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0].type, TokenKind.LET)
-        self.assertEqual(tokens[0], "let")
+        self.assertEqual(tokens[0].value, "let")
 
     def test_identifier(self):
         lexer = Lexer("variableName", self.syntax)
         tokens = lexer()
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0].type, TokenKind.IDENTIFIER)
-        self.assertEqual(tokens[0], "variableName")
+        self.assertEqual(tokens[0].value, "variableName")
 
     def test_integer(self):
         lexer = Lexer("12345", self.syntax)
         tokens = lexer()
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0].type, TokenKind.INTEGER)
-        self.assertEqual(tokens[0], "12345")
+        self.assertEqual(tokens[0].value, "12345")
 
     def test_floating_point(self):
         lexer = Lexer("123.45", self.syntax)
         tokens = lexer()
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0].type, TokenKind.FLOATING_POINT)
-        self.assertEqual(tokens[0], "123.45")
+        self.assertEqual(tokens[0].value, "123.45")
 
     def test_string_literal(self):
         lexer = Lexer('"Hello, World!"', self.syntax)
         tokens = lexer()
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0].type, TokenKind.STRING_LITERAL)
-        self.assertEqual(tokens[0], '"Hello, World!"')
+        self.assertEqual(tokens[0].value, '"Hello, World!"')
 
     def test_equals(self):
         lexer = Lexer("=", self.syntax)
         tokens = lexer()
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0].type, TokenKind.EQUALS)
-        self.assertEqual(tokens[0], "=")
+        self.assertEqual(tokens[0].value, "=")
 
     def test_semicolon(self):
         lexer = Lexer(";", self.syntax)
         tokens = lexer()
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0].type, TokenKind.SEMICOLON)
-        self.assertEqual(tokens[0], ";")
+        self.assertEqual(tokens[0].value, ";")
 
     def test_comment(self):
         lexer = Lexer("-- This is a comment\n", self.syntax)
@@ -72,7 +73,7 @@ class TestLexer(unittest.TestCase):
         tokens = lexer()
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0].type, TokenKind.OPERATOR)
-        self.assertEqual(tokens[0], "+")
+        self.assertEqual(tokens[0].value, "+")
 
     def test_complex_code(self):
         code = """

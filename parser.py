@@ -1,13 +1,23 @@
-import lexer
-from abc import abstractmethod
-from lexer import Token, TokenKind
+from token import Token, TokenKind
 from typing import List
 
 
-TokenStream = List[lexer.Token]
+TokenStream = List[Token]
 
 
-class ParserError(Exception):
+class ParseState:
+    """
+    Enum for parser state
+    """
+
+    ExpectLetOrEnd = 0
+    ExpectIdentfier = 1
+    ExpectEquals = 2
+    ExpectExpression = 3
+    ExpectSemicolon = 4
+
+
+class ParseError(Exception):
     """
     Exception raised when the parser cannot parse the code.
     """
@@ -20,7 +30,6 @@ class AstRelated:
     Abstract parent class for all AST related classes.
     """
 
-    @abstractmethod
     @classmethod
     def from_stream(cls, stream: TokenStream):
         raise NotImplementedError()
@@ -72,17 +81,32 @@ class AstExpression(AstRelated):
             raise ValueError("Expression must end with a semicolon")
         semicolon_idx = stream.index(semicolon)
         expression_stream = stream[:semicolon_idx]
-        remaining_stream = stream[semicolon_idx + 1:]
+        remaining_stream = stream[semicolon_idx + 1 :]
         return cls(expression_stream), remaining_stream
 
 
 class AstAssignment(AstRelated):
+    """
+
+    Attributes:
+        identifier: identifier to write to
+        value: value to assign
+
+    """
+
     def __init__(self, identifier: AstIdentifier, value: AstExpression):
         self.identifier = identifier
         self.value = value
 
 
 class Ast(AstRelated):
+    """
+
+    Attributes:
+        assignments: List of AstAssignment objects with parse function
+
+    """
+
     def __init__(self, assignments: List[AstAssignment]):
         self.assignments = assignments
 
@@ -101,16 +125,68 @@ class Ast(AstRelated):
 
         """
         assignments = []
-        while stream:
-            identifier = AstIdentifier(stream[0])
-            expression, stream = AstExpression.from_stream(stream[2:])
-            assignments.append(AstAssignment(identifier, expression))
+        state = ParseState.ExpectLetOrEnd
+        position = 0
+        stream_len = len(stream)
+        identifier = None
+        while position < stream_len:
+            token = stream[position]
+            if state == ParseState.ExpectLetOrEnd:
+                if token.type == TokenKind.LET:
+                    state = ParseState.ExpectIdentfier
+                    identifier = None
+                else:
+                    raise ParseError("Expected let or end of file")
+            elif state == ParseState.ExpectIdentfier:
+                if token.type == TokenKind.IDENTIFIER:
+                    identifier = AstIdentifier(token)
+                    state = ParseState.ExpectEquals
+                else:
+                    raise ParseError("Expected identifier")
+            elif state == ParseState.ExpectEquals:
+                if token.type == TokenKind.EQUALS:
+                    state = ParseState.ExpectExpression
+                else:
+                    raise ParseError("Expected equals sign")
+            elif state == ParseState.ExpectExpression:
+                expression, stream = AstExpression.from_stream(stream[position:])
+                if identifier is None:
+                    raise ParseError(
+                        "Could not parse out identifier (probably syntax error, maybe interpreter bug)"
+                    )
+                assignment = AstAssignment(identifier, expression)
+                assignments.append(assignment)
+                state = ParseState.ExpectSemicolon
+
+            position += 1
         return cls(assignments)
 
 
 class Parser:
-    def __init__(self, tokens: TokenStream):
-        self.tokens = tokens
+    """
 
-    def parse(self) -> Ast:
-        pass
+    Attributes:
+        stream: TokenStream to parse
+
+    """
+
+    def __init__(self, stream: TokenStream):
+        self.stream = stream
+
+    def __call__(self) -> Ast:
+        return Ast.from_stream(self.stream)
+
+
+if __name__ == "__main__":
+    code = """
+    let x = 10; -- x y z
+    let y = 20;
+    let z = x + y + zahl;
+    """
+    from lexer import Lexer, Syntax
+
+    syntax = Syntax()
+    lexer = Lexer(code, syntax)
+    tokens = lexer()
+    ast = Ast.from_stream(tokens)
+    print(ast)
