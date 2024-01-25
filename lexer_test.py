@@ -1,6 +1,6 @@
 import unittest
-from lexer import Lexer, Syntax, LexError
-from token import Token, TokenKind
+from lcaml_lexer import Lexer, Syntax, LexError
+from token_type import Token, TokenKind
 
 
 class TestLexer(unittest.TestCase):
