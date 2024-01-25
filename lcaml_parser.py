@@ -1,6 +1,7 @@
-from typing import Union
+from typing import Union, List
 from token_type import Token, TokenKind
-from typing import List
+from ast_related import AstRelated
+from expression import AstExpression
 
 
 TokenStream = List[Token]
@@ -26,19 +27,6 @@ class ParseError(Exception):
     pass
 
 
-class AstRelated:
-    """
-    Abstract parent class for all AST related classes.
-    """
-
-    @classmethod
-    def from_stream(cls, stream: TokenStream):
-        raise NotImplementedError()
-
-    def __repr__(self):
-        return self.__str__()
-
-
 class AstIdentifier(AstRelated):
     """
 
@@ -54,45 +42,6 @@ class AstIdentifier(AstRelated):
 
     def __str__(self):
         return "AstIdentifier(" + self.name + ")"
-
-
-class AstExpression(AstRelated):
-    """
-
-    Attributes:
-        expression: TokenStream of expression
-
-    """
-
-    def __init__(self, expression: TokenStream):
-        self.expression = expression
-
-    def __str__(self):
-        return "AstExpression(" + str(self.expression) + ")"
-
-    @classmethod
-    def from_stream(cls, stream: TokenStream):
-        """
-
-        Args:
-            stream: TokenStream to parse
-
-        Raises:
-            ValueError: Semicolon not found (no end of expression found)
-
-        Returns:
-            AstExpression: AstExpression object built from tokenstream
-            Stream: Remaining tokenstream
-        """
-        # FIXME will not work once functions are supported
-        # TODO support parentheses
-        semicolon = Token(TokenKind.SEMICOLON, ";")
-        if semicolon not in stream:
-            raise ValueError("Expression must end with a semicolon")
-        semicolon_idx = stream.index(semicolon)
-        expression_stream = stream[:semicolon_idx]
-        remaining_stream = stream[semicolon_idx:]  # leave semicolon in stream so the parser can be sure syntax is valid
-        return cls(expression_stream), remaining_stream
 
 
 class AstAssignment(AstRelated):
@@ -223,7 +172,9 @@ class Ast(AstRelated):
                     raise ParseError("Expected semicolon")
 
             else:
-                raise ParseError("Invalid state reached, please report bug to lcaml maintainers")
+                raise ParseError(
+                    "Invalid state reached, please report bug to lcaml maintainers"
+                )
         return cls(statements)
 
 
