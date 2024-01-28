@@ -5,16 +5,19 @@ from interpreter import InterpreterVM
 
 if __name__ == '__main__':
     code = """
-    let x = 10; -- x y z
-    let y = 20;
-    let z = x + y;
-    """
+let x = 11; -- x y z
+let a = 5;
+let y = x + a;
+let abc = ((x - (3 | x * 2)) % a) * (y + 1);
+let z = abc & 1;"""
     syntax = Syntax()
     lexer = Lexer(code, syntax)
     tokens = lexer()
     parser = Parser(tokens)
     ast = parser()
-    variables = {}
-    interpreter = InterpreterVM(ast, variables)
+    interpreter = InterpreterVM(ast, {})
     interpreter.execute()
-    print(variables)
+    print(code)
+    print()
+    for k, v in interpreter.variables.items():
+        print(f"{k.name} = {v}")

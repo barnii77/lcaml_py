@@ -1,13 +1,22 @@
+# NOTE: Cannot change to integer because these values are used
+# NOTE: to extract the token type from the syntax object
 class TokenKind:
     LET = "let"
     IDENTIFIER = "identifier"
     INTEGER = "integer"
     FLOATING_POINT = "floating_point"
     STRING_LITERAL = "string_literal"
+    BOOLEAN = "boolean"
     EQUALS = "equals"
     SEMICOLON = "semicolon"
     COMMENT = "comment"
     OPERATOR = "operator"
+    LPAREN = "lparen"
+    RPAREN = "rparen"
+    LSQUARE = "lsquare"
+    RSQUARE = "rsquare"
+    LCURLY = "lcurly"
+    RCURLY = "rcurly"
 
 
 class Token:

@@ -1,7 +1,8 @@
 from typing import Union, List
 from token_type import Token, TokenKind
 from ast_related import AstRelated
-from expression import AstExpression
+from parser_types import AstIdentifier, AstStatementType, AstAssignment, AstReturn
+from expression import Expression
 
 
 TokenStream = List[Token]
@@ -27,60 +28,6 @@ class ParseError(Exception):
     pass
 
 
-class AstIdentifier(AstRelated):
-    """
-
-    Attributes:
-        name: name of identifier
-
-    """
-
-    def __init__(self, name_token: Token):
-        if name_token.type != TokenKind.IDENTIFIER:
-            raise ValueError("Token must be an identifier")
-        self.name = name_token.value
-
-    def __str__(self):
-        return "AstIdentifier(" + self.name + ")"
-
-
-class AstAssignment(AstRelated):
-    """
-
-    Attributes:
-        identifier: identifier to write to
-        value: value to assign
-
-    """
-
-    def __init__(self, identifier: AstIdentifier, value: AstExpression):
-        self.identifier = identifier
-        self.value = value
-
-    def __str__(self):
-        return "AstAssignment(" + str(self.identifier) + ", " + str(self.value) + ")"
-
-
-class AstReturn(AstRelated):
-    """
-
-    Attributes:
-        value: value to return
-
-    """
-
-    def __init__(self, value: AstExpression):
-        self.value = value
-
-    def __str__(self):
-        return "AstReturn(" + str(self.value) + ")"
-
-
-class AstStatementType:
-    ASSIGNMENT = "assignment"
-    RETURN = "return"
-
-
 class AstStatement(AstRelated):
     """
 
@@ -90,12 +37,12 @@ class AstStatement(AstRelated):
 
     """
 
-    def __init__(self, type: str, value: Union[AstAssignment, AstReturn]):
+    def __init__(self, type: int, value: Union[AstAssignment, AstReturn]):
         self.type = type
         self.value = value
 
     def __str__(self):
-        return "AstStatement(" + self.type + ", " + str(self.value) + ")"
+        return "AstStatement(" + str(self.type) + ", " + str(self.value) + ")"
 
 
 class Ast(AstRelated):
@@ -106,7 +53,7 @@ class Ast(AstRelated):
 
     """
 
-    def __init__(self, statements: List[AstStatement]):
+    def __init__(self, statements: List):
         self.statements = statements
 
     def __str__(self):
@@ -123,7 +70,7 @@ class Ast(AstRelated):
             Ast: Ast object built from tokenstream
 
         Raises:
-            ParseError: _description_
+            ParseError: Parser could not parse the code
 
         """
         statements = []
@@ -155,7 +102,7 @@ class Ast(AstRelated):
                     raise ParseError("Expected equals sign")
 
             elif state == ParseState.ExpectExpression:
-                expression, stream = AstExpression.from_stream([next_token] + stream)
+                expression, stream = Expression.from_stream([next_token] + stream)
                 if identifier is None:
                     raise ParseError(
                         "Could not parse out identifier (probably syntax error, maybe interpreter bug)"
@@ -197,7 +144,7 @@ if __name__ == "__main__":
     code = """
     let x = 10; -- x y z
     let y = 20;
-    let z = x + y + zahl;
+    let z = x + y;
     """
     from lcaml_lexer import Lexer, Syntax
 

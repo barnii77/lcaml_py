@@ -10,6 +10,7 @@ class DType:
     FLOAT = 1
     STRING = 2
     BOOL = 3
+    FUNCTION = 4
 
 
 class Object:

@@ -1,7 +1,5 @@
-import lcaml_parser
-from lcaml_parser import Ast
+from parser_types import AstIdentifier, AstStatementType, AstAssignment, AstReturn
 from interpreter_types import Object
-from expression_evaluator import ExpressionEvaluator
 
 
 class InterpreterVM:
@@ -14,29 +12,29 @@ class InterpreterVM:
 
     """
 
-    def __init__(self, ast: Ast, variables: dict[str, Object]):
+    def __init__(self, ast, variables: dict[AstIdentifier, Object]):
         self.variables = variables
         self.ast = ast
+        self.return_value = None
 
     def execute(self):
         for statement in self.ast.statements:
-            if statement.type == lcaml_parser.AstStatementType.ASSIGNMENT:
+            if statement.type == AstStatementType.ASSIGNMENT:
                 assert (
-                    type(statement.value) == lcaml_parser.AstAssignment
+                    type(statement.value) == AstAssignment
                 ), "Bug: statement.value is not AstAssignment"
                 assignment = statement.value
-                identifier: str = assignment.identifier.name
-                value: Object = ExpressionEvaluator(assignment.value)(self.variables)
+                identifier: AstIdentifier = assignment.identifier
+                value: Object = assignment.value.resolve(self.variables)
                 self.variables[identifier] = value
 
-            elif statement.type == lcaml_parser.AstStatementType.RETURN:
+            elif statement.type == AstStatementType.RETURN:
                 assert (
-                    type(statement.value) == lcaml_parser.AstReturn
+                    type(statement.value) == AstReturn
                 ), "Bug: statement.value is not AstReturn"
-                return_value = ExpressionEvaluator(statement.value.value)(
-                    self.variables
-                )
-                return return_value
+                expression = statement.value.value
+                self.return_value = expression.resolve(self.variables)
+                return
 
             else:
                 raise ValueError("Unknown statement type " + statement.type)

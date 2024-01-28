@@ -33,6 +33,7 @@ class Syntax:
         self.identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
         self.floating_point = r"[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
         self.integer = r"[0-9]+"
+        self.boolean = r"true|false"
         self.string_literal = r"\".*\""
         self.equals = r"="
         self.semicolon = r";"
@@ -57,6 +58,12 @@ class Syntax:
             "&",
         )
         self.operator = "|".join("".join(f"\\{c}" for c in op) for op in operators)
+        self.lparen = r"\("
+        self.rparen = r"\)"
+        self.lsquare = r"\["
+        self.rsquare = r"\]"
+        self.lcurly = r"\{"
+        self.rcurly = r"\}"
 
         self.set_custom(kwargs)
 
