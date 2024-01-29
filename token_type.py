@@ -3,6 +3,8 @@
 class TokenKind:
     LET = "let"
     IDENTIFIER = "identifier"
+    FUNCTION_ARGS = "function_args"
+    RETURN = "return_keyword"  # NOTE: because return is a python keyword, this naming is required
     INTEGER = "integer"
     FLOATING_POINT = "floating_point"
     STRING_LITERAL = "string_literal"
@@ -17,8 +19,6 @@ class TokenKind:
     RSQUARE = "rsquare"
     LCURLY = "lcurly"
     RCURLY = "rcurly"
-    BAR = "bar"
-    COMMA = "comma"
 
 
 class Token:

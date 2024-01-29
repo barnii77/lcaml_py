@@ -1,10 +1,13 @@
+import lcaml_parser
+
 from ast_related import AstRelated
+from lcaml_lexer import Syntax
 from token_type import Token, TokenKind
 from lcaml_utils import PhantomType
 from interpreter_types import Object
 from parser_types import AstIdentifier
 from interpreter import InterpreterVM
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Callable
 
 
 TokenStream = List[Token]
@@ -85,12 +88,19 @@ class Function(AstRelated, Resolvable):
         self.body = body
         self.arguments = arguments
 
+    def __str__(self):
+        return "Function(" + str(self.body) + ", " + str(self.arguments) + ")"
+
     def resolve(self, context: Dict[AstIdentifier, Object]):
         # if this is called, it's probably trying to resolve identifier but actually already has function
         return self
 
     @classmethod
-    def from_stream(cls, stream: TokenStream):
+    def from_stream(
+        cls,
+        stream: TokenStream,
+        syntax: Syntax = Syntax(),
+    ):
         """
         Builds function from stream
 
@@ -103,46 +113,30 @@ class Function(AstRelated, Resolvable):
         Raises:
             ValueError: Syntax error or interpreter bug
         """
-        if len(stream) < 4:
-            raise ValueError("Stream must contain at least || {}, but doesn't")
-
-        # consume function keyword
+        # check for function argument token
+        # this token contains a bunch of function arguments
+        # token.value = "|x, y, z|"
+        # first, extract arguments
         first_token = stream.pop(0)
-        if first_token.type != TokenKind.BAR:
-            raise ValueError(f"Expected bar for arguments, got {first_token.type}")
+        if first_token.type != TokenKind.FUNCTION_ARGS:
+            raise ValueError(
+                f"Expected function arguments, got {first_token.type} instead"
+            )
 
-        state = FunctionParseState.ExpectArgumentOrEndOfArgs
-        arguments = []
-        while stream:
-            token = stream.pop(0)
-
-            if state == FunctionParseState.ExpectArgumentOrEndOfArgs:
-                if token.type == TokenKind.IDENTIFIER:
-                    arguments.append(AstIdentifier(token))
-                    state = FunctionParseState.ExpectCommaOrEndOfArgs
-                elif token.type == TokenKind.BAR:
-                    break
-                else:
-                    raise ValueError("Expected identifier or end of args")
-
-            elif state == FunctionParseState.ExpectCommaOrEndOfArgs:
-                if token.type == TokenKind.COMMA:
-                    state = FunctionParseState.ExpectArgumentOrEndOfArgs
-                elif token.type == TokenKind.RPAREN:
-                    break
-                else:
-                    raise ValueError("Expected comma or end of args")
-
-            else:
-                raise ValueError("Unknown state")
-
-        else:  # didn't break
-            raise ValueError("Unexpected end of stream")
+        identifiers_raw = map(str.strip, syntax.extract_fn_args(first_token.value))
+        arguments = list(
+            map(
+                lambda raw_id: AstIdentifier(Token(TokenKind.IDENTIFIER, raw_id)),
+                identifiers_raw,
+            )
+        )
 
         # consume function body
         first_body_token = stream.pop(0)
         if first_body_token.type != TokenKind.LCURLY:
-            raise ValueError(f"Expected {{ for function body, got {first_body_token.type}")
+            raise ValueError(
+                f"Expected {{ for function body, got {first_body_token.type}"
+            )
 
         # find end of body
         context_stack = []
@@ -152,9 +146,9 @@ class Function(AstRelated, Resolvable):
 
             # add token if it starts a context
             if token.type in (
-                    TokenKind.LPAREN,
-                    TokenKind.LSQUARE,
-                    TokenKind.LCURLY,
+                TokenKind.LPAREN,
+                TokenKind.LSQUARE,
+                TokenKind.LCURLY,
             ):
                 context_stack.append(token)
 
@@ -162,13 +156,18 @@ class Function(AstRelated, Resolvable):
             if context_stack and is_token_pair(context_stack[-1], token):
                 context_stack.pop()
             # break if terminating token found and no inner contexts
-            elif not context_stack and token == TokenKind.RCURLY:  # no inner contexts
+            elif (
+                not context_stack and token.type == TokenKind.RCURLY
+            ):  # no inner contexts
                 break
 
             terminating_idx += 1
 
-        body_stream, remaining_stream = stream[:terminating_idx], stream[terminating_idx:]
-        body = Ast(body_stream)
+        body_stream, remaining_stream = (
+            stream[:terminating_idx],
+            stream[terminating_idx + 1 :],  # skip RCURLY
+        )
+        body = lcaml_parser.Ast.from_stream(body_stream, syntax)
         return cls(body, arguments), remaining_stream
 
 
@@ -242,7 +241,7 @@ class Operation(AstRelated, Resolvable):
 
 
 class FunctionCall(AstRelated, Resolvable):
-    def __init__(self, function: Resolvable, arguments: List):
+    def __init__(self, function: Function, arguments: List):
         """
         Resolved by spawning a new InterpreterVM
 
@@ -282,9 +281,7 @@ class FunctionCall(AstRelated, Resolvable):
         # overwrite variables from outer context with local args
         local_context.update(arg_locals)
         # spawn new interpreter vm
-        interpreter_vm = InterpreterVM(
-            function.body, local_context
-        )
+        interpreter_vm = InterpreterVM(function.body, local_context)
         interpreter_vm.execute()
         return interpreter_vm.return_value
 
@@ -364,7 +361,7 @@ class Expression(AstRelated, Resolvable):
         return self.expression.resolve(context)
 
     @classmethod
-    def _build_from(cls, stream: TokenStream):
+    def _build_from(cls, stream: TokenStream, syntax: Syntax = Syntax()):
         """
         Build from stream raw (expects stream to not contain any other tokens that do not belong to expression)
         This function does a total of 7 passes across the data:
@@ -408,8 +405,8 @@ class Expression(AstRelated, Resolvable):
             elif token.type == TokenKind.IDENTIFIER:
                 first_pass_buffer.append(Variable(AstIdentifier(token)))
             elif token.type == TokenKind.LPAREN:
-                expression, stream = Expression.from_stream(
-                    stream, Token(TokenKind.RPAREN, PhantomType())
+                expression, stream = cls.from_stream(
+                    stream, syntax, Token(TokenKind.RPAREN, PhantomType())
                 )
                 first_pass_buffer.append(expression)
                 stream.pop(0)  # remove RPAREN
@@ -421,13 +418,14 @@ class Expression(AstRelated, Resolvable):
                 raise ValueError(f"Unexpected token {token}")
 
         # second pass: identify function calls
+        FUNCTION_CALL_ALLOWED_TYPES = (Constant, Variable, cls)
         second_pass_buffer = []
         # NOTE: will consume tokens from first_pass_buffer (by popping)
         while first_pass_buffer:
             # can be operation, constant, variable or expression
             thing = first_pass_buffer.pop(0)
 
-            if type(thing) in (Variable, Expression):
+            if type(thing) in (Variable, cls):
                 # might be function call
                 # check the following token(s)
                 if not first_pass_buffer:
@@ -435,13 +433,13 @@ class Expression(AstRelated, Resolvable):
                     second_pass_buffer.append(thing)
                     break
                 next_thing = first_pass_buffer[0]
-                if type(next_thing) in (Variable, Expression):
+                if type(next_thing) in FUNCTION_CALL_ALLOWED_TYPES:
                     # function call
                     function_call = FunctionCall(thing, [])
-                    while first_pass_buffer and type(first_pass_buffer[0]) in (
-                        Variable,
-                        Expression,
-                    ):  # NOTE: safe to run because python interpreter will short circuit type checking
+                    while (
+                        first_pass_buffer
+                        and type(first_pass_buffer[0]) in FUNCTION_CALL_ALLOWED_TYPES
+                    ):  # NOTE: safe to run because python interpreter will short circuit type(first_pass_buffer[0]) part
                         # consume all arguments
                         next_arg = first_pass_buffer.pop(0)
                         function_call.arguments.append(next_arg)
@@ -540,6 +538,7 @@ class Expression(AstRelated, Resolvable):
     def from_stream(
         cls,
         stream: TokenStream,
+        syntax: Syntax = Syntax(),
         terminating_token: Token = Token(
             TokenKind.SEMICOLON, PhantomType()
         ),  # use PhantomType so it matches anything of that type
@@ -554,10 +553,17 @@ class Expression(AstRelated, Resolvable):
             ValueError: Semicolon not found (no end of expression found)
 
         Returns:
-            AstExpression: AstExpression object built from tokenstream
+            Expression: AstExpression object built from tokenstream
             Stream: Remaining tokenstream
         """
         # FIXME will not work once functions are supported
+        if not stream:
+            raise ValueError("Empty stream")
+        elif stream[0].type == TokenKind.FUNCTION_ARGS:
+            # expression is a function (because function is a full expression and cannot be paired with other things in one expression, for that, you need subexpressions)
+            function, remaining_stream = Function.from_stream(stream, syntax)
+            return cls(function), remaining_stream
+
         if terminating_token not in stream:
             raise ValueError(f"Expression must end with a {terminating_token}")
         # go through stream to identify terminating token (which might not be it's first occurance because that occurance may be linked to another inner expression)
@@ -589,4 +595,4 @@ class Expression(AstRelated, Resolvable):
         # leave terminating token in remaining stream so the parser can be sure syntax is valid
         remaining_stream = stream[terminating_idx:]
 
-        return cls._build_from(expression_stream), remaining_stream
+        return cls._build_from(expression_stream, syntax), remaining_stream

@@ -1,5 +1,5 @@
 import re
-from typing import List, Dict
+from typing import List, Dict, Callable
 from token_type import Token
 
 
@@ -29,12 +29,24 @@ class Syntax:
     """
 
     def __init__(self, **kwargs):
+        # non-syntax-pattern stuff
+        self.extract_fn_args: Callable = lambda args_str: args_str.strip("|").split(",")
+
+        # keywords
         self.let = r"let\s"
+        self.return_keyword = r"return\s"
+
+        # identifiers and builtins
         self.identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
+        self.function_args = (
+            f"\\|\\s*({self.identifier}\\s*,\\s*)*{self.identifier}\\s*,?\\s*\\|"
+        )
         self.floating_point = r"[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
         self.integer = r"[0-9]+"
         self.boolean = r"true|false"
         self.string_literal = r"\".*\""
+
+        # symbols
         self.equals = r"="
         self.semicolon = r";"
         self.comment = r"--.*\n"
@@ -64,10 +76,9 @@ class Syntax:
         self.rsquare = r"\]"
         self.lcurly = r"\{"
         self.rcurly = r"\}"
-        self.bar = r"\|"
-        self.comma = r","
 
         self.set_custom(kwargs)
+        self.compiled_patterns = self.get_compiled_patterns()
 
     def set_custom(self, kwargs: Dict[str, str]):
         """
@@ -82,6 +93,12 @@ class Syntax:
 
     def patterns(self):
         return vars(self).items()
+
+    def get_compiled_patterns(self) -> dict:
+        result = {}
+        for k, pattern in self.patterns():
+            result[k] = re.compile(f"^\\s*({pattern})")
+        return result
 
 
 class Lexer:
@@ -119,10 +136,7 @@ class Lexer:
 
         while code.strip() != "":
             # match all the patterns in the syntax
-            for kind, pattern in self.syntax.patterns():
-                pattern = re.compile(
-                    f"^\\s*({pattern}).*"
-                )  # assert pattern is at the start of the string
+            for kind, pattern in self.syntax.compiled_patterns.items():
                 m = pattern.match(code)
                 if m:
                     break
@@ -142,6 +156,7 @@ class Lexer:
 
 if __name__ == "__main__":
     code = """
+    let f = |x, y| {let z = x + y;};
     let x = 10; -- x y z
     let y = 20;
     let z = x + y + zahl;

@@ -1,8 +1,10 @@
+import expression as lcaml_expression
+
 from typing import Union, List
 from token_type import Token, TokenKind
 from ast_related import AstRelated
 from parser_types import AstIdentifier, AstStatementType, AstAssignment, AstReturn
-from expression import Expression
+from lcaml_lexer import Syntax
 
 
 TokenStream = List[Token]
@@ -49,7 +51,7 @@ class Ast(AstRelated):
     """
 
     Attributes:
-        assignments: List of AstAssignment objects with parse function
+        statements: List of AstStatement objects with parse function
 
     """
 
@@ -60,7 +62,7 @@ class Ast(AstRelated):
         return "Ast(" + str(self.statements) + ")"
 
     @classmethod
-    def from_stream(cls, stream: TokenStream):
+    def from_stream(cls, stream: TokenStream, syntax: Syntax = Syntax()):
         """
 
         Args:
@@ -85,6 +87,14 @@ class Ast(AstRelated):
                 elif next_token.type == TokenKind.LET:
                     state = ParseState.ExpectIdentfier
                     identifier = None
+                elif next_token.type == TokenKind.RETURN:
+                    expression, stream = lcaml_expression.Expression.from_stream(
+                        stream, syntax
+                    )
+                    return_statement = AstReturn(expression)
+                    statement = AstStatement(AstStatementType.RETURN, return_statement)
+                    statements.append(statement)
+                    state = ParseState.ExpectSemicolon
                 else:
                     raise ParseError("Expected let or end of file")
 
@@ -102,7 +112,9 @@ class Ast(AstRelated):
                     raise ParseError("Expected equals sign")
 
             elif state == ParseState.ExpectExpression:
-                expression, stream = Expression.from_stream([next_token] + stream)
+                expression, stream = lcaml_expression.Expression.from_stream(
+                    [next_token] + stream, syntax
+                )
                 if identifier is None:
                     raise ParseError(
                         "Could not parse out identifier (probably syntax error, maybe interpreter bug)"
@@ -130,14 +142,16 @@ class Parser:
 
     Attributes:
         stream: TokenStream to parse
+        syntax: Syntax object to use for parsing
 
     """
 
-    def __init__(self, stream: TokenStream):
+    def __init__(self, stream: TokenStream, syntax: Syntax):
         self.stream = stream
+        self.syntax = syntax
 
     def __call__(self) -> Ast:
-        return Ast.from_stream(self.stream)
+        return Ast.from_stream(self.stream, self.syntax)
 
 
 if __name__ == "__main__":
@@ -151,7 +165,7 @@ if __name__ == "__main__":
     syntax = Syntax()
     lexer = Lexer(code, syntax)
     tokens = lexer()
-    parser = Parser(tokens)
+    parser = Parser(tokens, syntax)
     ast = parser()
     for statement in ast.statements:
         print(statement)

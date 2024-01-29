@@ -5,15 +5,18 @@ from interpreter import InterpreterVM
 
 if __name__ == '__main__':
     code = """
-let x = 11; -- x y z
-let a = 5;
-let y = x + a;
-let abc = ((x - (3 | x * 2)) % a) * (y + 1);
-let z = abc & 1;"""
+let f = |x| {
+    let y = x + 1;
+    return y;
+};
+
+let x = 10;
+let y = f (x + 4);
+"""
     syntax = Syntax()
     lexer = Lexer(code, syntax)
     tokens = lexer()
-    parser = Parser(tokens)
+    parser = Parser(tokens, syntax)
     ast = parser()
     interpreter = InterpreterVM(ast, {})
     interpreter.execute()
