@@ -4,7 +4,7 @@ from lcaml_utils import PhantomType
 from interpreter_types import Object
 from parser_types import AstIdentifier
 from interpreter import InterpreterVM
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 TokenStream = List[Token]
@@ -67,6 +67,11 @@ class Resolvable:
         raise NotImplementedError()
 
 
+class FunctionParseState:
+    ExpectCommaOrEndOfArgs = 0
+    ExpectArgumentOrEndOfArgs = 1
+
+
 class Function(AstRelated, Resolvable):
     """
 
@@ -84,9 +89,91 @@ class Function(AstRelated, Resolvable):
         # if this is called, it's probably trying to resolve identifier but actually already has function
         return self
 
+    @classmethod
+    def from_stream(cls, stream: TokenStream):
+        """
+        Builds function from stream
+
+        Args:
+            stream: stream to build from
+
+        Returns:
+            Function: function built from stream
+
+        Raises:
+            ValueError: Syntax error or interpreter bug
+        """
+        if len(stream) < 4:
+            raise ValueError("Stream must contain at least || {}, but doesn't")
+
+        # consume function keyword
+        first_token = stream.pop(0)
+        if first_token.type != TokenKind.BAR:
+            raise ValueError(f"Expected bar for arguments, got {first_token.type}")
+
+        state = FunctionParseState.ExpectArgumentOrEndOfArgs
+        arguments = []
+        while stream:
+            token = stream.pop(0)
+
+            if state == FunctionParseState.ExpectArgumentOrEndOfArgs:
+                if token.type == TokenKind.IDENTIFIER:
+                    arguments.append(AstIdentifier(token))
+                    state = FunctionParseState.ExpectCommaOrEndOfArgs
+                elif token.type == TokenKind.BAR:
+                    break
+                else:
+                    raise ValueError("Expected identifier or end of args")
+
+            elif state == FunctionParseState.ExpectCommaOrEndOfArgs:
+                if token.type == TokenKind.COMMA:
+                    state = FunctionParseState.ExpectArgumentOrEndOfArgs
+                elif token.type == TokenKind.RPAREN:
+                    break
+                else:
+                    raise ValueError("Expected comma or end of args")
+
+            else:
+                raise ValueError("Unknown state")
+
+        else:  # didn't break
+            raise ValueError("Unexpected end of stream")
+
+        # consume function body
+        first_body_token = stream.pop(0)
+        if first_body_token.type != TokenKind.LCURLY:
+            raise ValueError(f"Expected {{ for function body, got {first_body_token.type}")
+
+        # find end of body
+        context_stack = []
+        terminating_idx = 0
+        while terminating_idx < len(stream):
+            token = stream[terminating_idx]
+
+            # add token if it starts a context
+            if token.type in (
+                    TokenKind.LPAREN,
+                    TokenKind.LSQUARE,
+                    TokenKind.LCURLY,
+            ):
+                context_stack.append(token)
+
+            # remove token if it ends a context
+            if context_stack and is_token_pair(context_stack[-1], token):
+                context_stack.pop()
+            # break if terminating token found and no inner contexts
+            elif not context_stack and token == TokenKind.RCURLY:  # no inner contexts
+                break
+
+            terminating_idx += 1
+
+        body_stream, remaining_stream = stream[:terminating_idx], stream[terminating_idx:]
+        body = Ast(body_stream)
+        return cls(body, arguments), remaining_stream
+
 
 class Operation(AstRelated, Resolvable):
-    def __init__(self, left: Resolvable | None, operation: Token, right: Resolvable):
+    def __init__(self, left: Optional[Resolvable], operation: Token, right: Resolvable):
         optype = SYMBOL_TO_OPKIND.get(operation.value)
         if optype is None:
             raise ValueError(f"Unknown operation {operation.value}")
@@ -196,7 +283,7 @@ class FunctionCall(AstRelated, Resolvable):
         local_context.update(arg_locals)
         # spawn new interpreter vm
         interpreter_vm = InterpreterVM(
-            function.body, dict(zip(function.arguments, resolved_args))
+            function.body, local_context
         )
         interpreter_vm.execute()
         return interpreter_vm.return_value
@@ -461,6 +548,7 @@ class Expression(AstRelated, Resolvable):
 
         Args:
             stream: TokenStream to parse
+            terminating_token: Token to terminate expression with
 
         Raises:
             ValueError: Semicolon not found (no end of expression found)

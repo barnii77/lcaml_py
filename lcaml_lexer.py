@@ -64,6 +64,8 @@ class Syntax:
         self.rsquare = r"\]"
         self.lcurly = r"\{"
         self.rcurly = r"\}"
+        self.bar = r"\|"
+        self.comma = r","
 
         self.set_custom(kwargs)
 

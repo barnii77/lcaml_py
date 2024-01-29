@@ -17,6 +17,8 @@ class TokenKind:
     RSQUARE = "rsquare"
     LCURLY = "lcurly"
     RCURLY = "rcurly"
+    BAR = "bar"
+    COMMA = "comma"
 
 
 class Token:
