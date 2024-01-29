@@ -36,5 +36,16 @@ class InterpreterVM:
                 self.return_value = expression.resolve(self.variables)
                 return
 
+            elif statement.type == AstStatementType.CONTROL_FLOW:
+                control_flow = statement.value
+                for condition in control_flow.conditions:
+                    if condition.resolve(self.variables):
+                        interpreter_vm = InterpreterVM(condition.body, self.variables)
+                        interpreter_vm.execute()
+                        if interpreter_vm.return_value is not None:
+                            self.return_value = interpreter_vm.return_value
+                            return
+                        break
+
             else:
                 raise ValueError("Unknown statement type " + statement.type)

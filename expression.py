@@ -7,7 +7,7 @@ from lcaml_utils import PhantomType
 from interpreter_types import Object
 from parser_types import AstIdentifier
 from interpreter import InterpreterVM
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict, Optional
 
 
 TokenStream = List[Token]

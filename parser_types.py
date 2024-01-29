@@ -30,6 +30,7 @@ class AstIdentifier(AstRelated):
 class AstStatementType:
     ASSIGNMENT = 0
     RETURN = 1
+    CONTROL_FLOW = 2
 
 
 class AstAssignment(AstRelated):
@@ -62,3 +63,15 @@ class AstReturn(AstRelated):
 
     def __str__(self):
         return "AstReturn(" + str(self.value) + ")"
+
+
+class AstControlFlow(AstRelated):
+    """
+    Attributes:
+        conditions: (List[Expression]) list of conditions
+    """
+    def __init__(self, conditions: list):
+        self.conditions = conditions
+
+    def __str__(self):
+        return "AstControlFlow(" + str(self.conditions) + ")"
