@@ -44,6 +44,7 @@ class Syntax:
         self.function_args = (
             f"\\|\\s*({self.identifier}\\s*,\\s*)*{self.identifier}\\s*,?\\s*\\|"
         )
+        self.unit_type = r"\(\)"
         self.floating_point = r"[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
         self.integer = r"-?[0-9]+"
         self._true = r"true"

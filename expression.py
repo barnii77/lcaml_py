@@ -4,33 +4,14 @@ from ast_related import AstRelated
 from lcaml_lexer import Syntax
 from token_type import Token, TokenKind
 from lcaml_utils import PhantomType, split_at_context_end
-from interpreter_types import Object
+from interpreter_types import Object, DType
 from parser_types import AstIdentifier
 from interpreter_vm import InterpreterVM
+from operation_kind import OperationKind
 from typing import List, Dict, Optional
 
 
 TokenStream = List[Token]
-
-
-class OperationKind:
-    ADD = 0
-    SUB = 1
-    MUL = 2
-    DIV = 3
-    MOD = 4
-    NOT = 5
-    EQ = 6
-    NEQ = 7
-    LT = 8
-    GT = 9
-    FLIP = 10
-    LTE = 11
-    GTE = 12
-    OR = 13
-    AND = 14
-    BITOR = 15
-    BITAND = 16
 
 
 SYMBOL_TO_OPKIND = {
@@ -55,7 +36,7 @@ SYMBOL_TO_OPKIND = {
 
 
 class Resolvable:
-    def resolve(self, context: Dict[AstIdentifier, Object]):
+    def resolve(self, context: Dict[AstIdentifier, Object]) -> Object:
         """
         This function resolves the value of the expression.
         """
@@ -83,9 +64,9 @@ class Function(AstRelated, Resolvable):
     def __str__(self):
         return "Function(" + str(self.body) + ", " + str(self.arguments) + ")"
 
-    def resolve(self, context: Dict[AstIdentifier, Object]):
+    def resolve(self, context: Dict[AstIdentifier, Object]) -> Object:
         # if this is called, it's probably trying to resolve identifier but actually already has function
-        return self
+        return Object(DType.FUNCTION, self)
 
     @classmethod
     def from_stream(
@@ -158,70 +139,81 @@ class Operation(AstRelated, Resolvable):
             + ")"
         )
 
-    def resolve(self, context: Dict[AstIdentifier, Object]):
+    def resolve(self, context: Dict[AstIdentifier, Object]) -> Object:
         """
         This function evaluates the operation for values of left and right
         """
         if self.left is None:
-            left = None
+            left: Object = None  # typehint so the lsp doesnt spam me with warnings
         else:
-            left = self.left.resolve(context)
+            left: Object = self.left.resolve(context)
 
         right = self.right.resolve(context)
+        if left is None and self.operation not in OperationKind._unary:
+            raise ValueError("Left operand must not be None")
+
         if self.operation == OperationKind.ADD:
-            return left + right
+            return left.add(right)
         elif self.operation == OperationKind.SUB:
-            return left - right
+            return left.sub(right)
         elif self.operation == OperationKind.MUL:
-            return left * right
+            return left.mul(right)
         elif self.operation == OperationKind.DIV:
-            return left / right
+            return left.div(right)
         elif self.operation == OperationKind.MOD:
-            return left % right
+            return left.mod(right)
         elif self.operation == OperationKind.NOT:
-            return not right
+            return right.bool_not()
         elif self.operation == OperationKind.EQ:
-            return left == right
+            return left.eq(right)
         elif self.operation == OperationKind.NEQ:
-            return left != right
+            return left.neq(right)
         elif self.operation == OperationKind.LT:
-            return left < right
+            return left.lt(right)
         elif self.operation == OperationKind.GT:
-            return left > right
+            return left.gt(right)
         elif self.operation == OperationKind.FLIP:
-            return -right
+            return right.flip()
         elif self.operation == OperationKind.LTE:
-            return left <= right
+            return left.lte(right)
         elif self.operation == OperationKind.GTE:
-            return left >= right
+            return left.gte(right)
         elif self.operation == OperationKind.OR:
-            return left or right
+            return left.bool_or(right)
         elif self.operation == OperationKind.AND:
-            return left and right
+            return left.bool_and(right)
         elif self.operation == OperationKind.BITOR:
-            return left | right
+            return left.bitor(right)
         elif self.operation == OperationKind.BITAND:
-            return left & right
+            return left.bitand(right)
         else:
             raise ValueError(f"Unknown operation type {self.operation}")
 
 
 class FunctionCall(AstRelated, Resolvable):
-    def __init__(self, function: Function, arguments: List):
+    """
+
+    Attributes:
+        function_resolvable: (Resolvable[Function]) function to call
+        arguments: (List[Expression]) arguments to call function with
+
+    """
+
+    def __init__(self, fuction_resolvable: Resolvable, arguments: List):
         """
         Resolved by spawning a new InterpreterVM
 
         Args:
-            identifier: Identifier of function
+            function_container: Object[Function]
             arguments: List[Expression]
         """
-        self.function = function
+        self.function_resolvable = fuction_resolvable
         self.arguments = arguments
 
     def __str__(self):
-        return "FunctionCall(" + str(self.function) + ", " + str(self.arguments) + ")"
+        return "FunctionCall(" + str(self.function_resolvable) + ", " + str(self.arguments) + ")"
 
-    def resolve(self, context: Dict[AstIdentifier, Object]):
+    def resolve(self, context: Dict[AstIdentifier, Object]) -> Optional[Object]:
         """
         Resolves the value of the function call by spawning a new InterpreterVM
 
@@ -235,7 +227,10 @@ class FunctionCall(AstRelated, Resolvable):
             TypeError: Cannot call non-function
         """
         # resolve function if it is identifier
-        function = self.function.resolve(context)
+        function = self.function_resolvable.resolve(context)
+        if isinstance(function, Object):
+            assert function.type == DType.FUNCTION, "Internal interpreter bug: Invalid object"
+            function = function.value
         if not isinstance(function, Function):
             raise TypeError("Cannot call non-function")
 
@@ -270,32 +265,40 @@ class Constant(AstRelated, Resolvable):
     """
 
     Attributes:
-        value: value of the constant (int, float, str, bool)
+        value: value of the constant (int, float, str, bool, ...)
+        type: type of the constant (DType)
 
     """
 
     def __init__(self, token: Token, syntax: Syntax = Syntax()):
-        if token.type == TokenKind.INTEGER:
+        if token.type == TokenKind.UNIT_TYPE:
+            value = None
+            kind = DType.UNIT
+        elif token.type == TokenKind.INTEGER:
             try:
                 value = int(token.value)
+                kind = DType.INT
             except ValueError:
                 raise ValueError(f"Invalid integer {token.value}")
         elif token.type == TokenKind.FLOATING_POINT:
             try:
                 value = float(token.value)
+                kind = DType.FLOAT
             except ValueError:
                 raise ValueError(f"Invalid floating point {token.value}")
         elif token.type == TokenKind.STRING_LITERAL:
             value = token.value
+            kind = DType.STRING
         elif token.type == TokenKind.BOOLEAN:
             try:
                 value = syntax._true == token.value
+                kind = DType.BOOL
             except ValueError:
                 raise ValueError(f"Invalid boolean {token.value}")
         else:
             raise ValueError(f"Invalid type for constant: {token.type}")
 
-        self.value = value
+        self.value = Object(kind, value)
 
     def __str__(self):
         return "Constant(" + str(self.value) + ")"
@@ -364,12 +367,7 @@ class Expression(AstRelated, Resolvable):
             if token.type == TokenKind.OPERATOR:
                 op = Operation(None, token, None)
                 first_pass_buffer.append(op)
-            elif (
-                token.type == TokenKind.INTEGER
-                or token.type == TokenKind.FLOATING_POINT
-                or token.type == TokenKind.STRING_LITERAL
-                or token.type == TokenKind.BOOLEAN
-            ):
+            elif token.type in TokenKind._builtin_types:
                 first_pass_buffer.append(Constant(token, syntax))
             elif token.type == TokenKind.IDENTIFIER:
                 first_pass_buffer.append(Variable(AstIdentifier(token)))

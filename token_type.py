@@ -8,6 +8,7 @@ class TokenKind:
     ELSE = "else_keyword"
     IDENTIFIER = "identifier"
     FUNCTION_ARGS = "function_args"
+    UNIT_TYPE = "unit_type"
     INTEGER = "integer"
     FLOATING_POINT = "floating_point"
     STRING_LITERAL = "string_literal"
@@ -22,6 +23,13 @@ class TokenKind:
     RSQUARE = "rsquare"
     LCURLY = "lcurly"
     RCURLY = "rcurly"
+    _builtin_types = [
+        UNIT_TYPE,
+        INTEGER,
+        FLOATING_POINT,
+        STRING_LITERAL,
+        BOOLEAN,
+    ]
 
 
 class Token:

@@ -1,3 +1,4 @@
+from typing import Optional
 from parser_types import AstIdentifier, AstStatementType, AstAssignment, AstReturn
 from interpreter_types import Object
 
@@ -9,6 +10,7 @@ class InterpreterVM:
     Attributes:
         ast: AST to interpret
         variables: variables to use in the interpreter
+        return_value: return value of the interpreter (None if no return statement was executed)
 
     """
 
@@ -17,7 +19,7 @@ class InterpreterVM:
             variables = {}
         self.variables = variables
         self.ast = ast
-        self.return_value = None
+        self.return_value: Optional[Object] = None
 
     def execute(self):
         for statement in self.ast.statements:
