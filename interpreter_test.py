@@ -1,26 +1,8 @@
-from lcaml_lexer import Lexer, Syntax
-from lcaml_parser import Parser
-from interpreter import InterpreterVM
+from interpreter import Interpreter
 
 
-if __name__ == '__main__':
-    code = """
-let f = |x| {
-    let y = x + 1;
-    return y;
-};
-
-let x = 10;
-let y = f (x + 4);
-"""
-    syntax = Syntax()
-    lexer = Lexer(code, syntax)
-    tokens = lexer()
-    parser = Parser(tokens, syntax)
-    ast = parser()
-    interpreter = InterpreterVM(ast, {})
-    interpreter.execute()
-    print(code)
-    print()
-    for k, v in interpreter.variables.items():
-        print(f"{k.name} = {v}")
+with open('lcaml_test_code.lml', 'r') as f:
+    code = f.read()
+interpreter = Interpreter(code)
+result = interpreter.execute()
+print(result)

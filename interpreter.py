@@ -1,51 +1,38 @@
-from parser_types import AstIdentifier, AstStatementType, AstAssignment, AstReturn
-from interpreter_types import Object
+import lcaml_lexer
+import lcaml_parser
+import interpreter_vm
 
 
-class InterpreterVM:
+class Interpreter:
     """
-    This class represents the interpreter virtual machine.
 
     Attributes:
-        ast: AST to interpret
-        variables: variables to use in the interpreter
+        syntax: Syntax object containing language syntax info
+        tokens: List of tokens of code
+        ast: Abstract Syntax Tree of code
+        vm: Virtual Machine to execute code
 
+    Initializer Raises:
+        A lot of exceptions depending on the code
+        Among the most common are:
+            ValueError
+            SyntaxError
+            RuntimeError (invalid code)
+            LexError
+            ParseError
     """
-
-    def __init__(self, ast, variables: dict[AstIdentifier, Object]):
-        self.variables = variables
-        self.ast = ast
-        self.return_value = None
+    def __init__(self, code: str):
+        self.syntax = lcaml_lexer.Syntax()
+        self.tokens = lcaml_lexer.Lexer(code, self.syntax)()
+        self.ast = lcaml_parser.Parser(self.tokens, self.syntax)()
+        self.vm = interpreter_vm.InterpreterVM(self.ast)
 
     def execute(self):
-        for statement in self.ast.statements:
-            if statement.type == AstStatementType.ASSIGNMENT:
-                assert (
-                    type(statement.value) == AstAssignment
-                ), "Bug: statement.value is not AstAssignment"
-                assignment = statement.value
-                identifier: AstIdentifier = assignment.identifier
-                value: Object = assignment.value.resolve(self.variables)
-                self.variables[identifier] = value
+        """
 
-            elif statement.type == AstStatementType.RETURN:
-                assert (
-                    type(statement.value) == AstReturn
-                ), "Bug: statement.value is not AstReturn"
-                expression = statement.value.value
-                self.return_value = expression.resolve(self.variables)
-                return
+        Returns:
+            Any: The return value of the code
 
-            elif statement.type == AstStatementType.CONTROL_FLOW:
-                control_flow = statement.value
-                for condition in control_flow.conditions:
-                    if condition.resolve(self.variables):
-                        interpreter_vm = InterpreterVM(condition.body, self.variables)
-                        interpreter_vm.execute()
-                        if interpreter_vm.return_value is not None:
-                            self.return_value = interpreter_vm.return_value
-                            return
-                        break
-
-            else:
-                raise ValueError("Unknown statement type " + statement.type)
+        """
+        self.vm.execute()
+        return self.vm.return_value

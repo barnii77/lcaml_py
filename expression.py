@@ -3,10 +3,10 @@ import lcaml_parser
 from ast_related import AstRelated
 from lcaml_lexer import Syntax
 from token_type import Token, TokenKind
-from lcaml_utils import PhantomType
+from lcaml_utils import PhantomType, split_at_context_end
 from interpreter_types import Object
 from parser_types import AstIdentifier
-from interpreter import InterpreterVM
+from interpreter_vm import InterpreterVM
 from typing import List, Dict, Optional
 
 
@@ -52,14 +52,6 @@ SYMBOL_TO_OPKIND = {
     "|": OperationKind.BITOR,
     "&": OperationKind.BITAND,
 }
-
-
-def is_token_pair(token1: Token, token2: Token):
-    return (
-        (token1.type == TokenKind.LPAREN and token2.type == TokenKind.RPAREN)
-        or (token1.type == TokenKind.LSQUARE and token2.type == TokenKind.RSQUARE)
-        or (token1.type == TokenKind.LCURLY and token2.type == TokenKind.RCURLY)
-    )
 
 
 class Resolvable:
@@ -130,7 +122,6 @@ class Function(AstRelated, Resolvable):
                 identifiers_raw,
             )
         )
-
         # consume function body
         first_body_token = stream.pop(0)
         if first_body_token.type != TokenKind.LCURLY:
@@ -138,35 +129,10 @@ class Function(AstRelated, Resolvable):
                 f"Expected {{ for function body, got {first_body_token.type}"
             )
 
-        # find end of body
-        context_stack = []
-        terminating_idx = 0
-        while terminating_idx < len(stream):
-            token = stream[terminating_idx]
-
-            # add token if it starts a context
-            if token.type in (
-                TokenKind.LPAREN,
-                TokenKind.LSQUARE,
-                TokenKind.LCURLY,
-            ):
-                context_stack.append(token)
-
-            # remove token if it ends a context
-            if context_stack and is_token_pair(context_stack[-1], token):
-                context_stack.pop()
-            # break if terminating token found and no inner contexts
-            elif (
-                not context_stack and token.type == TokenKind.RCURLY
-            ):  # no inner contexts
-                break
-
-            terminating_idx += 1
-
-        body_stream, remaining_stream = (
-            stream[:terminating_idx],
-            stream[terminating_idx + 1 :],  # skip RCURLY
+        body_stream, remaining_stream = split_at_context_end(
+            stream, Token(TokenKind.RCURLY, PhantomType())
         )
+        remaining_stream.pop(0)  # remove RCURLY
         body = lcaml_parser.Ast.from_stream(body_stream, syntax)
         return cls(body, arguments), remaining_stream
 
@@ -294,7 +260,10 @@ class Variable(AstRelated, Resolvable):
         return "Variable(" + str(self.identifier) + ")"
 
     def resolve(self, context: Dict[AstIdentifier, Object]):
-        return context[self.identifier]
+        result = context.get(self.identifier)
+        if result is None:
+            raise RuntimeError(f"LCamlNameError: {self.identifier} is undefined")
+        return result
 
 
 class Constant(AstRelated, Resolvable):
@@ -305,7 +274,7 @@ class Constant(AstRelated, Resolvable):
 
     """
 
-    def __init__(self, token: Token):
+    def __init__(self, token: Token, syntax: Syntax = Syntax()):
         if token.type == TokenKind.INTEGER:
             try:
                 value = int(token.value)
@@ -320,7 +289,7 @@ class Constant(AstRelated, Resolvable):
             value = token.value
         elif token.type == TokenKind.BOOLEAN:
             try:
-                value = bool(token.value)
+                value = syntax._true == token.value
             except ValueError:
                 raise ValueError(f"Invalid boolean {token.value}")
         else:
@@ -401,7 +370,7 @@ class Expression(AstRelated, Resolvable):
                 or token.type == TokenKind.STRING_LITERAL
                 or token.type == TokenKind.BOOLEAN
             ):
-                first_pass_buffer.append(Constant(token))
+                first_pass_buffer.append(Constant(token, syntax))
             elif token.type == TokenKind.IDENTIFIER:
                 first_pass_buffer.append(Variable(AstIdentifier(token)))
             elif token.type == TokenKind.LPAREN:
@@ -410,10 +379,6 @@ class Expression(AstRelated, Resolvable):
                 )
                 first_pass_buffer.append(expression)
                 stream.pop(0)  # remove RPAREN
-            elif token.type == TokenKind.LCURLY:
-                raise NotImplementedError()
-            elif token.type == TokenKind.LSQUARE:
-                raise NotImplementedError()
             else:
                 raise ValueError(f"Unexpected token {token}")
 
@@ -566,33 +531,11 @@ class Expression(AstRelated, Resolvable):
 
         if terminating_token not in stream:
             raise ValueError(f"Expression must end with a {terminating_token}")
-        # go through stream to identify terminating token (which might not be it's first occurance because that occurance may be linked to another inner expression)
-        context_stack = []
-
-        terminating_idx = 0
-        while terminating_idx < len(stream):
-            token = stream[terminating_idx]
-
-            # add token if it starts a context
-            if token.type in (
-                TokenKind.LPAREN,
-                TokenKind.LSQUARE,
-                TokenKind.LCURLY,
-            ):
-                context_stack.append(token)
-
-            # remove token if it ends a context
-            if context_stack and is_token_pair(context_stack[-1], token):
-                context_stack.pop()
-            # break if terminating token found and no inner contexts
-            elif not context_stack and token == terminating_token:  # no inner contexts
-                break
-
-            terminating_idx += 1
 
         # exclude terminating and starting token
-        expression_stream = stream[:terminating_idx]
         # leave terminating token in remaining stream so the parser can be sure syntax is valid
-        remaining_stream = stream[terminating_idx:]
+        expression_stream, remaining_stream = split_at_context_end(
+            stream, terminating_token
+        )
 
         return cls._build_from(expression_stream, syntax), remaining_stream

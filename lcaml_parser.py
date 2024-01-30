@@ -1,9 +1,9 @@
 import expression as lcaml_expression
+import parser_types
 
 from typing import Union, List
 from token_type import Token, TokenKind
 from ast_related import AstRelated
-from parser_types import AstIdentifier, AstStatementType, AstAssignment, AstReturn
 from lcaml_lexer import Syntax
 
 
@@ -39,7 +39,11 @@ class AstStatement(AstRelated):
 
     """
 
-    def __init__(self, type: int, value: Union[AstAssignment, AstReturn]):
+    def __init__(
+        self,
+        type: int,
+        value: Union[parser_types.AstAssignment, parser_types.AstReturn],
+    ):
         self.type = type
         self.value = value
 
@@ -79,53 +83,67 @@ class Ast(AstRelated):
         state = ParseState.ExpectStatementOrCommentOrEnd
         identifier = None
         while stream:
-            next_token = stream.pop(0)
+            token = stream.pop(0)
 
             if state == ParseState.ExpectStatementOrCommentOrEnd:
-                if next_token.type == TokenKind.COMMENT:
+                if token.type == TokenKind.COMMENT:
                     continue
-                elif next_token.type == TokenKind.LET:
+                elif token.type == TokenKind.LET:
                     state = ParseState.ExpectIdentfier
                     identifier = None
-                elif next_token.type == TokenKind.RETURN:
+                elif token.type == TokenKind.RETURN:
                     expression, stream = lcaml_expression.Expression.from_stream(
                         stream, syntax
                     )
-                    return_statement = AstReturn(expression)
-                    statement = AstStatement(AstStatementType.RETURN, return_statement)
+                    return_statement = parser_types.AstReturn(expression)
+                    statement = AstStatement(
+                        parser_types.AstStatementType.RETURN, return_statement
+                    )
                     statements.append(statement)
                     state = ParseState.ExpectSemicolon
+                elif token.type == TokenKind.IF:
+                    control_flow, stream = parser_types.AstControlFlow.from_stream(
+                        stream, syntax
+                    )
+                    statement = AstStatement(
+                        parser_types.AstStatementType.CONTROL_FLOW, control_flow
+                    )
+                    statements.append(statement)
+                elif token.type == TokenKind.SEMICOLON:
+                    pass  # semicolon is always ok
                 else:
                     raise ParseError("Expected let or end of file")
 
             elif state == ParseState.ExpectIdentfier:
-                if next_token.type == TokenKind.IDENTIFIER:
-                    identifier = AstIdentifier(next_token)
+                if token.type == TokenKind.IDENTIFIER:
+                    identifier = parser_types.AstIdentifier(token)
                     state = ParseState.ExpectEquals
                 else:
                     raise ParseError("Expected identifier")
 
             elif state == ParseState.ExpectEquals:
-                if next_token.type == TokenKind.EQUALS:
+                if token.type == TokenKind.EQUALS:
                     state = ParseState.ExpectExpression
                 else:
                     raise ParseError("Expected equals sign")
 
             elif state == ParseState.ExpectExpression:
                 expression, stream = lcaml_expression.Expression.from_stream(
-                    [next_token] + stream, syntax
+                    [token] + stream, syntax
                 )
                 if identifier is None:
                     raise ParseError(
                         "Could not parse out identifier (probably syntax error, maybe interpreter bug)"
                     )
-                assignment = AstAssignment(identifier, expression)
-                statement = AstStatement(AstStatementType.ASSIGNMENT, assignment)
+                assignment = parser_types.AstAssignment(identifier, expression)
+                statement = AstStatement(
+                    parser_types.AstStatementType.ASSIGNMENT, assignment
+                )
                 statements.append(statement)
                 state = ParseState.ExpectSemicolon
 
             elif state == ParseState.ExpectSemicolon:
-                if next_token.type == TokenKind.SEMICOLON:
+                if token.type == TokenKind.SEMICOLON:
                     state = ParseState.ExpectStatementOrCommentOrEnd
                 else:
                     raise ParseError("Expected semicolon")
@@ -134,6 +152,8 @@ class Ast(AstRelated):
                 raise ParseError(
                     "Invalid state reached, please report bug to lcaml maintainers"
                 )
+        if state != ParseState.ExpectStatementOrCommentOrEnd:
+            raise ParseError("Unexpected end of file")
         return cls(statements)
 
 

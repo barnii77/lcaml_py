@@ -35,6 +35,9 @@ class Syntax:
         # keywords
         self.let = r"let\s"
         self.return_keyword = r"return\s"
+        self.if_keyword = r"if\s"
+        self.else_if_keyword = r"else\s+if\s"
+        self.else_keyword = r"else\s"
 
         # identifiers and builtins
         self.identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
@@ -42,34 +45,37 @@ class Syntax:
             f"\\|\\s*({self.identifier}\\s*,\\s*)*{self.identifier}\\s*,?\\s*\\|"
         )
         self.floating_point = r"[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
-        self.integer = r"[0-9]+"
+        self.integer = r"-?[0-9]+"
+        self._true = r"true"
         self.boolean = r"true|false"
         self.string_literal = r"\".*\""
-
-        # symbols
-        self.equals = r"="
-        self.semicolon = r";"
         self.comment = r"--.*\n"
+
+        # operators
         operators = (
-            "+",
-            "-",
+            "!",
+            "~",
             "*",
             "/",
             "%",
-            "!",
+            "+",
+            "-",
             "==",
             "!=",
-            "<",
-            ">",
-            "~",
             "<=",
             ">=",
+            "<",
+            ">",
             "||",
             "&&",
             "|",
             "&",
         )
         self.operator = "|".join("".join(f"\\{c}" for c in op) for op in operators)
+
+        # symbols
+        self.equals = r"="
+        self.semicolon = r";"
         self.lparen = r"\("
         self.rparen = r"\)"
         self.lsquare = r"\["
@@ -92,7 +98,13 @@ class Syntax:
             setattr(self, k, v)
 
     def patterns(self):
-        return vars(self).items()
+        """
+
+        Returns:
+            Iterable[Tuple[str, str]]: A iterable of tuples of the form [(name, pattern), ...] that excludes fields starting with _ (_fieldname)
+
+        """
+        return filter(lambda i: not i[0].startswith("_"), vars(self).items())
 
     def get_compiled_patterns(self) -> dict:
         result = {}

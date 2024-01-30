@@ -2,9 +2,12 @@
 # NOTE: to extract the token type from the syntax object
 class TokenKind:
     LET = "let"
+    RETURN = "return_keyword"  # NOTE: because return is a python keyword, this naming is required
+    IF = "if_keyword"
+    ELSE_IF = "else_if_keyword"
+    ELSE = "else_keyword"
     IDENTIFIER = "identifier"
     FUNCTION_ARGS = "function_args"
-    RETURN = "return_keyword"  # NOTE: because return is a python keyword, this naming is required
     INTEGER = "integer"
     FLOATING_POINT = "floating_point"
     STRING_LITERAL = "string_literal"
