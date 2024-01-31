@@ -20,12 +20,14 @@ Interpreter: AST | IR -> EXECUTE
 
 # TODO
 
-- figure out and fix why ~x is -x instead of -x - 1
-
 - Currently, when a function references values that are not passed as args, if the values go out of scope, the function will not work anymore
-That means: Wrap everything in an object type and implement reference counting!! (Whoohooo! Yeaaahhhhh!! LOL pls kill me now)
+    - This means: collect local symbols (all identifiers = functions + variables) and return them
+    - Everything needs to collect all the symbols of anything it contains (eg: function containing control flow containing expression) and bubble it up (so to speak)
+    - Functions need to also save a dict of IDs and Nones inside themselves as well as return them as a list (the dict is just for avoiding copies later)
+    - When a function is instantiated in the program, the values of these symbols need to be resolved
+    - FunctionCalls then need to use those and first create context containing globals, then update it with the values of the bound values in that dict, then finally the locals (args)
 
 - Use ParseError and LexError instead of ValueError
 
-- Implement control flow
+- (??) Loops (As functions????)
 - (?) Implicit returns (like Rust)

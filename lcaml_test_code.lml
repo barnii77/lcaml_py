@@ -10,13 +10,19 @@
 
 
 let mult_by_constant_function_factory = |z| {
+  -- Function[symbols]
+  -- global_symbols = {symbol: value};  -- resolved at function creation time
   let multiply_by_constant = |x| {
+    if (z < 0) {
+     let z = 0;
+    };
     return x * z;
   };
   
   return multiply_by_constant;
-}
+};
 
 let z = 5;
 let multiply_by_4 = mult_by_constant_function_factory 4;
+return multiply_by_4 5;
 
