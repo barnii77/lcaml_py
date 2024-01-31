@@ -1,28 +1,52 @@
--- let factorial = |n| {
---   if (n <= 1) {
---     return 1;
---   } else {
---     return n * factorial (n - 1);
---   };
--- };
--- 
--- return factorial 5;
-
-
-let mult_by_constant_function_factory = |z| {
-  -- Function[symbols]
-  -- global_symbols = {symbol: value};  -- resolved at function creation time
-  let multiply_by_constant = |x| {
-    if (z < 0) {
-     let z = 0;
-    };
-    return x * z;
+let factorial = |n| {
+  if (n <= 1) {
+    return 1;
+  } else {
+    return n * factorial (n - 1);
   };
-  
-  return multiply_by_constant;
 };
 
-let z = 5;
-let multiply_by_4 = mult_by_constant_function_factory 4;
-return multiply_by_4 5;
+-- let mult_by_constant_function_factory = |z| {
+--   -- Function[symbols]
+--   -- global_symbols = {symbol: value};  -- resolved at function creation time
+--   let multiply_by_constant = |x| {
+--     if (z < 0) {
+--      let z = 0;
+--     };
+--     return x * z;
+--   };
+--   
+--   return multiply_by_constant;
+-- };
+-- 
+-- let z = 5;
+-- let multiply_by_4 = mult_by_constant_function_factory 4;
 
+let power = |x, n| {
+  if (n == 0) {
+    return 1;
+  } else {
+    return x * power x (n - 1);
+  };
+};
+
+let pi = 3.14159265;
+
+let sin = |x, n| {
+  let x = x % (2 * pi);
+  let sum_term = |n| {
+    if (n >= 10) {
+      return 0;
+    };
+    if (n % 2 == 0) {
+      let sign = 1;
+    } else {
+      let sign = -1;
+    };
+    let term = sign * (power x (2 * n + 1)) / factorial (2 * n + 1);
+    return term + sum_term (n + 1);
+  };
+  return sum_term 0;
+};
+
+return sin (pi / 2) 0;
