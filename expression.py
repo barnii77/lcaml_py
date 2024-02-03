@@ -8,7 +8,7 @@ from interpreter_types import Object, DType
 from parser_types import AstIdentifier
 from interpreter_vm import InterpreterVM
 from operation_kind import OperationKind
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set, Iterable
 
 
 TokenStream = List[Token]
@@ -57,15 +57,22 @@ class Function(AstRelated, Resolvable):
 
     """
 
-    def __init__(self, body, arguments: List[AstIdentifier]):
+    def __init__(
+        self, body, arguments: List[AstIdentifier], bounds: Iterable[AstIdentifier]
+    ):
         self.body = body
         self.arguments = arguments
+        self.bounds: Dict[AstIdentifier, Object] = {ident: None for ident in bounds}
 
     def __str__(self):
         return "Function(" + str(self.body) + ", " + str(self.arguments) + ")"
 
     def resolve(self, context: Dict[AstIdentifier, Object]) -> Object:
         # if this is called, it's probably trying to resolve identifier but actually already has function
+        # use context to resolve bounds
+        intersecting_keys = self.bounds.keys() & context.keys()
+        for key in intersecting_keys:
+            self.bounds[key] = context[key]
         return Object(DType.FUNCTION, self)
 
     @classmethod
@@ -114,8 +121,14 @@ class Function(AstRelated, Resolvable):
             stream, Token(TokenKind.RCURLY, PhantomType())
         )
         remaining_stream.pop(0)  # remove RCURLY
-        body = lcaml_parser.Ast.from_stream(body_stream, syntax)
-        return cls(body, arguments), remaining_stream
+        body, symbols_used = lcaml_parser.Ast.from_stream(body_stream, syntax)
+        return (
+            cls(
+                body, arguments, map(lambda variable: variable.identifier, symbols_used)
+            ),
+            remaining_stream,
+            symbols_used,
+        )
 
 
 class Operation(AstRelated, Resolvable):
@@ -211,7 +224,13 @@ class FunctionCall(AstRelated, Resolvable):
         self.arguments = arguments
 
     def __str__(self):
-        return "FunctionCall(" + str(self.function_resolvable) + ", " + str(self.arguments) + ")"
+        return (
+            "FunctionCall("
+            + str(self.function_resolvable)
+            + ", "
+            + str(self.arguments)
+            + ")"
+        )
 
     def resolve(self, context: Dict[AstIdentifier, Object]) -> Optional[Object]:
         """
@@ -229,7 +248,9 @@ class FunctionCall(AstRelated, Resolvable):
         # resolve function if it is identifier
         function = self.function_resolvable.resolve(context)
         if isinstance(function, Object):
-            assert function.type == DType.FUNCTION, "Internal interpreter bug: Invalid object"
+            assert (
+                function.type == DType.FUNCTION
+            ), "Internal interpreter bug: Invalid object"
             function = function.value
         if not isinstance(function, Function):
             raise TypeError("Cannot call non-function")
@@ -239,6 +260,9 @@ class FunctionCall(AstRelated, Resolvable):
         arg_locals = zip(function.arguments, resolved_args)
         # create local context
         local_context = context.copy()
+        # functions can bind to global values, example in docs
+        # https://github.com/barnii77/lcaml_py/blob/main/docs/interpreter.md#functions
+        local_context.update(function.bounds)
         # overwrite variables from outer context with local args
         local_context.update(arg_locals)
         # spawn new interpreter vm
@@ -357,6 +381,7 @@ class Expression(AstRelated, Resolvable):
             Expression: Expression object built from stream
 
         """
+        all_symbols_used: Set[Variable] = set()
         first_pass_buffer = []
         # first pass across data: make operations without parameters and parse tokens into constants, variables or Exressions
         # NOTE: this pass will not detect function calls
@@ -372,11 +397,12 @@ class Expression(AstRelated, Resolvable):
             elif token.type == TokenKind.IDENTIFIER:
                 first_pass_buffer.append(Variable(AstIdentifier(token)))
             elif token.type == TokenKind.LPAREN:
-                expression, stream = cls.from_stream(
+                expression, stream, symbols_used = cls.from_stream(
                     stream, syntax, Token(TokenKind.RPAREN, PhantomType())
                 )
                 first_pass_buffer.append(expression)
                 stream.pop(0)  # remove RPAREN
+                all_symbols_used.update(symbols_used)
             else:
                 raise ValueError(f"Unexpected token {token}")
 
@@ -387,6 +413,9 @@ class Expression(AstRelated, Resolvable):
         while first_pass_buffer:
             # can be operation, constant, variable or expression
             thing = first_pass_buffer.pop(0)
+
+            if isinstance(thing, Variable):  # add all symbols to all_symbols_used
+                all_symbols_used.add(thing)
 
             if type(thing) in (Variable, cls):
                 # might be function call
@@ -495,7 +524,7 @@ class Expression(AstRelated, Resolvable):
                 "Error while parsing expression: Syntax error or interpreter bug"
             )
         expression = this_pass_buffer[0]
-        return cls(expression)
+        return cls(expression), all_symbols_used
 
     @classmethod
     def from_stream(
@@ -524,8 +553,11 @@ class Expression(AstRelated, Resolvable):
             raise ValueError("Empty stream")
         elif stream[0].type == TokenKind.FUNCTION_ARGS:
             # expression is a function (because function is a full expression and cannot be paired with other things in one expression, for that, you need subexpressions)
-            function, remaining_stream = Function.from_stream(stream, syntax)
-            return cls(function), remaining_stream
+            # FIXME
+            function, remaining_stream, symbols_used = Function.from_stream(
+                stream, syntax
+            )
+            return cls(function), remaining_stream, symbols_used
 
         if terminating_token not in stream:
             raise ValueError(f"Expression must end with a {terminating_token}")
@@ -536,4 +568,5 @@ class Expression(AstRelated, Resolvable):
             stream, terminating_token
         )
 
-        return cls._build_from(expression_stream, syntax), remaining_stream
+        expression, symbols_used = cls._build_from(expression_stream, syntax)
+        return expression, remaining_stream, symbols_used

@@ -1,7 +1,7 @@
 import expression as lcaml_expression
 import lcaml_parser
 
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Set
 from lcaml_utils import split_at_context_end, PhantomType
 from token_type import Token, TokenKind
 from ast_related import AstRelated
@@ -88,7 +88,9 @@ class AstControlFlowBranch(AstRelated):
         self.body = body
 
     def __str__(self):
-        return "AstControlFlowBranch(" + str(self.condition) + ", " + str(self.body) + ")"
+        return (
+            "AstControlFlowBranch(" + str(self.condition) + ", " + str(self.body) + ")"
+        )
 
 
 class AstControlFlow(AstRelated):
@@ -106,7 +108,7 @@ class AstControlFlow(AstRelated):
     @classmethod
     def from_stream(
         cls, stream: TokenStream, syntax: Syntax = Syntax()
-    ) -> Tuple[Any, TokenStream]:
+    ) -> Tuple[Any, TokenStream, Set[Any]]:
         # Any because AstControlFlow not yet defined
         """
 
@@ -120,13 +122,13 @@ class AstControlFlow(AstRelated):
             ParseError: Parser could not parse the code
 
         """
-
+        all_symbols_used: Set[lcaml_expression.Variable] = set()
         # constants
         STATEMENT_END_TOKEN = Token(TokenKind.SEMICOLON, PhantomType())
         BODY_END_TOKEN = Token(TokenKind.RCURLY, PhantomType())
         CONDITION_END_TOKEN = Token(TokenKind.RPAREN, PhantomType())
         # construct artificial if expression for else using artificial stream of boolean true followed by semicolon
-        ELSE_ARTIFICIAL_IF_EXPRESSION, _ = lcaml_expression.Expression.from_stream(
+        ELSE_ARTIFICIAL_IF_EXPRESSION, _, _ = lcaml_expression.Expression.from_stream(
             [
                 Token(TokenKind.BOOLEAN, syntax._true),
                 STATEMENT_END_TOKEN,
@@ -143,17 +145,19 @@ class AstControlFlow(AstRelated):
         if stream.pop(0).type != TokenKind.LPAREN:  # check/remove LPAREN
             raise ValueError("Expected LPAREN after if statement")
 
-        expression, stream = lcaml_expression.Expression.from_stream(
+        expression, stream, symbols_used = lcaml_expression.Expression.from_stream(
             stream, syntax, CONDITION_END_TOKEN
         )
         stream.pop(0)  # remove RPAREN
+        all_symbols_used.update(symbols_used)
 
         if stream.pop(0).type != TokenKind.LCURLY:  # check/remove LCURLY
             raise ValueError("Expected LCURLY after if statement")
 
         body, stream = split_at_context_end(stream, BODY_END_TOKEN)
         stream.pop(0)  # remove RCURLY
-        body = lcaml_parser.Ast.from_stream(body, syntax)
+        body, symbols_used = lcaml_parser.Ast.from_stream(body, syntax)
+        all_symbols_used.update(symbols_used)
         branch = AstControlFlowBranch(expression, body)
         branches.append(branch)
 
@@ -168,17 +172,20 @@ class AstControlFlow(AstRelated):
             if stream.pop(0).type != TokenKind.LPAREN:  # check/remove LPAREN
                 raise ValueError("Expected LPAREN after if statement")
 
-            expression, stream = lcaml_expression.Expression.from_stream(
+            expression, stream, symbols_used = lcaml_expression.Expression.from_stream(
                 stream, syntax, CONDITION_END_TOKEN
             )
             stream.pop(0)  # remove RPAREN
+            all_symbols_used.update(symbols_used)
 
             if stream.pop(0).type != TokenKind.LCURLY:
                 raise ValueError("Expected LCURLY after else if statement")
 
             body, stream = split_at_context_end(stream, BODY_END_TOKEN)
             stream.pop(0)  # remove RCURLY
-            body = lcaml_parser.Ast.from_stream(body, syntax)
+            body, symbols_used = lcaml_parser.Ast.from_stream(body, syntax)
+            all_symbols_used.update(symbols_used)
+
             branch = AstControlFlowBranch(expression, body)
             branches.append(branch)
 
@@ -186,15 +193,17 @@ class AstControlFlow(AstRelated):
 
         if token.type != TokenKind.ELSE:
             stream.insert(0, token)
-            return AstControlFlow(branches), stream
+            return AstControlFlow(branches), stream, all_symbols_used
 
         if stream.pop(0).type != TokenKind.LCURLY:
             raise ValueError("Expected LCURLY after else statement")
 
         body, stream = split_at_context_end(stream, BODY_END_TOKEN)
         stream.pop(0)  # remove RCURLY
-        body = lcaml_parser.Ast.from_stream(body, syntax)
+        body, symbols_used = lcaml_parser.Ast.from_stream(body, syntax)
+        all_symbols_used.update(symbols_used)
+
         branch = AstControlFlowBranch(ELSE_ARTIFICIAL_IF_EXPRESSION, body)
         branches.append(branch)
 
-        return cls(branches), stream
+        return cls(branches), stream, all_symbols_used

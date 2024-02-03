@@ -1,7 +1,7 @@
 import expression as lcaml_expression
 import parser_types
 
-from typing import Union, List
+from typing import Union, List, Set
 from token_type import Token, TokenKind
 from ast_related import AstRelated
 from lcaml_lexer import Syntax
@@ -82,6 +82,7 @@ class Ast(AstRelated):
         statements = []
         state = ParseState.ExpectStatementOrCommentOrEnd
         identifier = None
+        all_symbols_used: Set[lcaml_expression.Variable] = set()
         while stream:
             token = stream.pop(0)
 
@@ -92,9 +93,10 @@ class Ast(AstRelated):
                     state = ParseState.ExpectIdentfier
                     identifier = None
                 elif token.type == TokenKind.RETURN:
-                    expression, stream = lcaml_expression.Expression.from_stream(
+                    expression, stream, symbols_used = lcaml_expression.Expression.from_stream(
                         stream, syntax
                     )
+                    all_symbols_used.update(symbols_used)
                     return_statement = parser_types.AstReturn(expression)
                     statement = AstStatement(
                         parser_types.AstStatementType.RETURN, return_statement
@@ -102,9 +104,10 @@ class Ast(AstRelated):
                     statements.append(statement)
                     state = ParseState.ExpectSemicolon
                 elif token.type == TokenKind.IF:
-                    control_flow, stream = parser_types.AstControlFlow.from_stream(
+                    control_flow, stream, symbols_used = parser_types.AstControlFlow.from_stream(
                         stream, syntax
                     )
+                    all_symbols_used.update(symbols_used)
                     statement = AstStatement(
                         parser_types.AstStatementType.CONTROL_FLOW, control_flow
                     )
@@ -128,9 +131,10 @@ class Ast(AstRelated):
                     raise ParseError("Expected equals sign")
 
             elif state == ParseState.ExpectExpression:
-                expression, stream = lcaml_expression.Expression.from_stream(
+                expression, stream, symbols_used = lcaml_expression.Expression.from_stream(
                     [token] + stream, syntax
                 )
+                all_symbols_used.update(symbols_used)
                 if identifier is None:
                     raise ParseError(
                         "Could not parse out identifier (probably syntax error, maybe interpreter bug)"
@@ -154,7 +158,7 @@ class Ast(AstRelated):
                 )
         if state != ParseState.ExpectStatementOrCommentOrEnd:
             raise ParseError("Unexpected end of file")
-        return cls(statements)
+        return cls(statements), all_symbols_used
 
 
 class Parser:
@@ -171,7 +175,8 @@ class Parser:
         self.syntax = syntax
 
     def __call__(self) -> Ast:
-        return Ast.from_stream(self.stream, self.syntax)
+        ast, _ = Ast.from_stream(self.stream, self.syntax)
+        return ast
 
 
 if __name__ == "__main__":
