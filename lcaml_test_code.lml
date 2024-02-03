@@ -1,24 +1,31 @@
-let factorial = |n| {
-  if (n <= 1) {
-    return 1;
-  } else {
-    return n * factorial (n - 1);
-  };
+-- let factorial = |n| {
+--   if (n <= 1) {
+--     return 1;
+--   } else {
+--     return n * factorial (n - 1);
+--   };
+-- };
+
+-- let mult_by_constant_function_factory = |z| {
+--   -- Function[symbols]
+--   -- global_symbols = {symbol: value};  -- resolved at function creation time
+--   let multiply_by_constant = |x| {
+--     return x * z;
+--   };
+--   
+--   return multiply_by_constant;
+-- };
+
+-- let z = 5;
+-- let multiply_by_4 = mult_by_constant_function_factory 4;
+-- return multiply_by_4 3;
+
+let mult = |a, b| {
+  return a * b;
 };
 
-let mult_by_constant_function_factory = |z| {
-  -- Function[symbols]
-  -- global_symbols = {symbol: value};  -- resolved at function creation time
-  let multiply_by_constant = |x| {
-    return x * z;
-  };
-  
-  return multiply_by_constant;
-};
-
-let z = 5;
-let multiply_by_4 = mult_by_constant_function_factory 4;
-return multiply_by_4 3;
+let mult_by_4 = mult 4;
+return mult_by_4 3;
 
 -- let power = |x, n| {
 --   if (n == 0) {

@@ -62,7 +62,10 @@ class Function(AstRelated, Resolvable):
     ):
         self.body = body
         self.arguments = arguments
-        self.bounds: Dict[AstIdentifier, Object] = {ident: None for ident in bounds}
+        if isinstance(bounds, dict):
+            self.bounds: Dict[AstIdentifier, Object] = bounds
+        else:
+            self.bounds: Dict[AstIdentifier, Object] = {ident: None for ident in bounds}
 
     def __str__(self):
         return "Function(" + str(self.body) + ", " + str(self.arguments) + ")"
@@ -258,17 +261,29 @@ class FunctionCall(AstRelated, Resolvable):
         # resolve args and make arg locals
         resolved_args = [arg.resolve(context) for arg in self.arguments]
         arg_locals = zip(function.arguments, resolved_args)
-        # create local context
-        local_context = context.copy()
-        # functions can bind to global values, example in docs
-        # https://github.com/barnii77/lcaml_py/blob/main/docs/interpreter.md#functions
-        local_context.update(function.bounds)
-        # overwrite variables from outer context with local args
-        local_context.update(arg_locals)
-        # spawn new interpreter vm
-        interpreter_vm = InterpreterVM(function.body, local_context)
-        interpreter_vm.execute()
-        return interpreter_vm.return_value
+
+        if len(resolved_args) < len(function.arguments):
+            # not all args provided -> return curried function
+            # remove first n elements (curried away)
+            remaining_args = function.arguments[len(resolved_args) :]
+            # add curried args to bounds
+            bounds = function.bounds.copy()
+            bounds.update(arg_locals)
+            result = Function(function.body, remaining_args, bounds)
+            return Object(DType.FUNCTION, result)
+        else:
+            # all args provided -> execute function
+            # create local context
+            local_context = context.copy()
+            # functions can bind to global values, example in docs
+            # https://github.com/barnii77/lcaml_py/blob/main/docs/interpreter.md#functions
+            local_context.update(function.bounds)
+            # overwrite variables from outer context with local args
+            local_context.update(arg_locals)
+            # spawn new interpreter vm
+            interpreter_vm = InterpreterVM(function.body, local_context)
+            interpreter_vm.execute()
+            return interpreter_vm.return_value
 
 
 class Variable(AstRelated, Resolvable):
@@ -553,7 +568,6 @@ class Expression(AstRelated, Resolvable):
             raise ValueError("Empty stream")
         elif stream[0].type == TokenKind.FUNCTION_ARGS:
             # expression is a function (because function is a full expression and cannot be paired with other things in one expression, for that, you need subexpressions)
-            # FIXME
             function, remaining_stream, symbols_used = Function.from_stream(
                 stream, syntax
             )
