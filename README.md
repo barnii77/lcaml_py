@@ -18,7 +18,7 @@ Interpreter (.rs?): AST | IR -> EXECUTE
 
 # TODO
 
-- Currying
+- Algebraic data types
 
 - Use ParseError and LexError instead of ValueError
 
