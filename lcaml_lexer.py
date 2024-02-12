@@ -35,6 +35,7 @@ class Syntax:
         # keywords
         self.let = r"let\s"
         self.return_keyword = r"return\s"
+        self.struct_keyword = r"struct(?![a-zA-Z0-9_])"
         self.if_keyword = r"if\s"
         self.else_if_keyword = r"else\s+if\s"
         self.else_keyword = r"else\s"
@@ -75,6 +76,7 @@ class Syntax:
         self.operator = "|".join("".join(f"\\{c}" for c in op) for op in operators)
 
         # symbols
+        self.comma = r","
         self.equals = r"="
         self.semicolon = r";"
         self.lparen = r"\("

@@ -1,5 +1,8 @@
 import lcaml_parser
+import extern_python
 
+from resolvable import Resolvable
+from gettable import Gettable
 from ast_related import AstRelated
 from lcaml_lexer import Syntax
 from token_type import Token, TokenKind
@@ -12,6 +15,7 @@ from typing import List, Dict, Optional, Set, Iterable
 
 
 TokenStream = List[Token]
+Context = Dict[AstIdentifier, Object]
 
 
 SYMBOL_TO_OPKIND = {
@@ -35,14 +39,6 @@ SYMBOL_TO_OPKIND = {
 }
 
 
-class Resolvable:
-    def resolve(self, context: Dict[AstIdentifier, Object]) -> Object:
-        """
-        This function resolves the value of the expression.
-        """
-        raise NotImplementedError()
-
-
 class FunctionParseState:
     ExpectCommaOrEndOfArgs = 0
     ExpectArgumentOrEndOfArgs = 1
@@ -54,6 +50,7 @@ class Function(AstRelated, Resolvable):
     Attributes:
         ast: (lcaml_parser.Ast) the AST that makes up the function
         arguments: the arguments of the function
+        bounds: the bounds of the function (functions can bind to values defined when they are defined, then these values go out of scope but the function is still bound to them)
 
     """
 
@@ -70,7 +67,7 @@ class Function(AstRelated, Resolvable):
     def __str__(self):
         return "Function(" + str(self.body) + ", " + str(self.arguments) + ")"
 
-    def resolve(self, context: Dict[AstIdentifier, Object]) -> Object:
+    def resolve(self, context: Context) -> Object:
         # if this is called, it's probably trying to resolve identifier but actually already has function
         # use context to resolve bounds
         intersecting_keys = self.bounds.keys() & context.keys()
@@ -117,7 +114,7 @@ class Function(AstRelated, Resolvable):
         first_body_token = stream.pop(0)
         if first_body_token.type != TokenKind.LCURLY:
             raise ValueError(
-                f"Expected {{ for function body, got {first_body_token.type}"
+                f"Expected lcurly for function body, got {first_body_token.type}"
             )
 
         body_stream, remaining_stream = split_at_context_end(
@@ -155,7 +152,7 @@ class Operation(AstRelated, Resolvable):
             + ")"
         )
 
-    def resolve(self, context: Dict[AstIdentifier, Object]) -> Object:
+    def resolve(self, context: Context) -> Object:
         """
         This function evaluates the operation for values of left and right
         """
@@ -206,6 +203,125 @@ class Operation(AstRelated, Resolvable):
             raise ValueError(f"Unknown operation type {self.operation}")
 
 
+class StructParseState:
+    ExpectFieldOrEnd = 0
+    ExpectCommaOrEnd = 1
+
+
+class StructType(AstRelated, Resolvable):
+    """
+
+    Attributes:
+        fields: the names of the fields of a struct
+
+    """
+
+    def __init__(self, fields: List[AstIdentifier]):
+        self.fields = fields
+
+    def __str__(self):
+        return f"StructType({self.fields})"
+
+    def resolve(self, context: Context):
+        return Object(DType.STRUCT_TYPE, self)
+
+    @classmethod
+    def from_stream(cls, stream: TokenStream):
+        token = stream.pop(0)
+        if token.type != TokenKind.STRUCT:
+            raise ValueError(f"expected struct keyword, got {token}")
+        token = stream.pop(0)
+        if token.type != TokenKind.LCURLY:
+            raise ValueError(f"expected lcurly, got {token}")
+
+        state = StructParseState.ExpectFieldOrEnd
+        fields: List[AstIdentifier] = []
+        while stream:
+            token = stream.pop(0)
+            if state == StructParseState.ExpectFieldOrEnd:
+                if token.type == TokenKind.IDENTIFIER:
+                    field = AstIdentifier(token)
+                    fields.append(field)
+                    state = StructParseState.ExpectCommaOrEnd
+                elif token.type == TokenKind.RCURLY:
+                    break
+                else:
+                    raise ValueError(f"Expected field, got {token}")
+            elif state == StructParseState.ExpectCommaOrEnd:
+                if token.type == TokenKind.COMMA:
+                    state = StructParseState.ExpectFieldOrEnd
+                elif token.type == TokenKind.RCURLY:
+                    break
+                else:
+                    raise ValueError(f"expected comma, got {token}")
+            else:
+                raise RuntimeError(
+                    f"Internal Bug: invalid state reached in parsing of struct definition (state code: {state})"
+                )
+        else:
+            raise ValueError("Unexpected end of tokenstream")
+
+        return cls(fields), stream, set()
+
+
+class StructInstance(AstRelated, Resolvable, Gettable):
+    def __init__(
+        self, fields: Dict[AstIdentifier, Resolvable], type: Optional[Resolvable] = None
+    ):
+        self.type = type
+        self.fields = fields
+
+    def __str__(self):
+        return f"StructInstance({self.fields})"
+
+    def resolve(self, context: Context):
+        return Object(DType.STRUCT_INSTANCE, self)
+
+    def get(self, ident: AstIdentifier) -> Object:
+        if ident not in self.fields:
+            raise ValueError(f"Field {ident} not found in struct {self}")
+        return self.fields[ident]
+
+    # TODO!!!!!!!
+    @classmethod
+    def from_stream(cls, stream: TokenStream):
+        ...
+
+
+class FieldAccess(AstRelated, Resolvable):
+    """
+    A class that represents a field access to a value. Can be stacked by having a FieldAccess as the object field of another FieldAccess
+
+    Attributes:
+        object: the resolvable (expression, variable, whatever) to access field from
+        field: the field to look for and return
+
+    """
+
+    def __init__(self, object: Resolvable, field: AstIdentifier):
+        """
+
+        Args:
+            object: the resolvable (expression, variable, whatever) to access field from
+            field: the field to look for and return
+
+        """
+        self.object = object
+        self.field = field
+
+    def __str__(self):
+        return "AstFieldAccess(" + str(self.object) + ", " + str(self.field) + ")"
+
+    def resolve(self, context: Context) -> Object:
+        obj = self.object.resolve(context)
+        if isinstance(obj, Gettable):
+            return obj.get(self.field)
+        else:
+            raise TypeError(
+                f"Internal Error: Cannot access field {self.field} on non-struct {obj}"
+            )
+
+
 class FunctionCall(AstRelated, Resolvable):
     """
 
@@ -235,7 +351,7 @@ class FunctionCall(AstRelated, Resolvable):
             + ")"
         )
 
-    def resolve(self, context: Dict[AstIdentifier, Object]) -> Optional[Object]:
+    def resolve(self, context: Context) -> Optional[Object]:
         """
         Resolves the value of the function call by spawning a new InterpreterVM
 
@@ -251,39 +367,42 @@ class FunctionCall(AstRelated, Resolvable):
         # resolve function if it is identifier
         function = self.function_resolvable.resolve(context)
         if isinstance(function, Object):
-            assert (
-                function.type == DType.FUNCTION
-            ), "Internal interpreter bug: Invalid object"
             function = function.value
-        if not isinstance(function, Function):
-            raise TypeError("Cannot call non-function")
 
         # resolve args and make arg locals
         resolved_args = [arg.resolve(context) for arg in self.arguments]
-        arg_locals = zip(function.arguments, resolved_args)
 
-        if len(resolved_args) < len(function.arguments):
-            # not all args provided -> return curried function
-            # remove first n elements (curried away)
-            remaining_args = function.arguments[len(resolved_args) :]
-            # add curried args to bounds
-            bounds = function.bounds.copy()
-            bounds.update(arg_locals)
-            result = Function(function.body, remaining_args, bounds)
-            return Object(DType.FUNCTION, result)
+        if isinstance(function, Function):
+            arg_locals = zip(function.arguments, resolved_args)
+
+            if len(resolved_args) < len(function.arguments):
+                # not all args provided -> return curried function
+                # remove first n elements (curried away)
+                remaining_args = function.arguments[len(resolved_args) :]
+                # add curried args to bounds
+                bounds = function.bounds.copy()
+                bounds.update(arg_locals)
+                result = Function(function.body, remaining_args, bounds)
+                return Object(DType.FUNCTION, result)
+            else:
+                # all args provided -> execute function
+                # create local context
+                local_context = context.copy()
+                # functions can bind to global values, example in docs
+                # https://github.com/barnii77/lcaml_py/blob/main/docs/interpreter.md#functions
+                local_context.update(function.bounds)
+                # overwrite variables from outer context with local args
+                local_context.update(arg_locals)
+                # spawn new interpreter vm
+                interpreter_vm = InterpreterVM(function.body, local_context)
+                interpreter_vm.execute()
+                return interpreter_vm.return_value
+
+        elif isinstance(function, extern_python.ExternPython):
+            return function.execute(context, resolved_args)
+
         else:
-            # all args provided -> execute function
-            # create local context
-            local_context = context.copy()
-            # functions can bind to global values, example in docs
-            # https://github.com/barnii77/lcaml_py/blob/main/docs/interpreter.md#functions
-            local_context.update(function.bounds)
-            # overwrite variables from outer context with local args
-            local_context.update(arg_locals)
-            # spawn new interpreter vm
-            interpreter_vm = InterpreterVM(function.body, local_context)
-            interpreter_vm.execute()
-            return interpreter_vm.return_value
+            raise TypeError("Cannot call non-function")
 
 
 class Variable(AstRelated, Resolvable):
@@ -293,7 +412,7 @@ class Variable(AstRelated, Resolvable):
     def __str__(self):
         return "Variable(" + str(self.identifier) + ")"
 
-    def resolve(self, context: Dict[AstIdentifier, Object]):
+    def resolve(self, context: Context):
         result = context.get(self.identifier)
         if result is None:
             raise RuntimeError(f"LCamlNameError: {self.identifier} is undefined")
@@ -342,7 +461,7 @@ class Constant(AstRelated, Resolvable):
     def __str__(self):
         return "Constant(" + str(self.value) + ")"
 
-    def resolve(self, context: Dict[AstIdentifier, Object]):
+    def resolve(self, context: Context):
         return self.value
 
 
@@ -365,7 +484,7 @@ class Expression(AstRelated, Resolvable):
     def __str__(self):
         return "AstExpression(" + str(self.expression) + ")"
 
-    def resolve(self, context: Dict[AstIdentifier, Object]):
+    def resolve(self, context: Context):
         """
         This function resolves the value of the expression.
         """
@@ -421,6 +540,7 @@ class Expression(AstRelated, Resolvable):
             else:
                 raise ValueError(f"Unexpected token {token}")
 
+        # TODO: detect struct instantiations
         # second pass: identify function calls
         FUNCTION_CALL_ALLOWED_TYPES = (Constant, Variable, cls)
         second_pass_buffer = []
@@ -572,6 +692,9 @@ class Expression(AstRelated, Resolvable):
                 stream, syntax
             )
             return cls(function), remaining_stream, symbols_used
+        elif stream[0].type == TokenKind.STRUCT:
+            struct_type, remaining_stream, symbols_used = StructType.from_stream(stream)
+            return cls(struct_type), remaining_stream, symbols_used
 
         if terminating_token not in stream:
             raise ValueError(f"Expression must end with a {terminating_token}")

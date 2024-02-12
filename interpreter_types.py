@@ -1,6 +1,8 @@
 from operation_kind import OperationKind
 from typing import Any
 
+from parser_types import AstIdentifier
+
 
 class DType:
     """
@@ -13,6 +15,9 @@ class DType:
     BOOL = 3
     UNIT = 4
     FUNCTION = 5
+    STRUCT_TYPE = 6
+    STRUCT_INSTANCE = 7
+    EXTERN_PYTHON = 8
 
     @staticmethod
     def name(code: int):
@@ -28,6 +33,12 @@ class DType:
             return "UnitType"
         elif code == DType.FUNCTION:
             return "Function"
+        elif code == DType.STRUCT_TYPE:
+            return "StructType"
+        elif code == DType.STRUCT_INSTANCE:
+            return "StructInstance"
+        elif code == DType.EXTERN_PYTHON:
+            return "ExternPython"
         else:
             raise ValueError(f"Unknown type {code}")
 
@@ -210,7 +221,7 @@ class Object:
         self.value = value
 
     def __str__(self):
-        return f"{DType.name(self.type)}(" + str(self.value) + ")"
+        return f"Object::{DType.name(self.type)}(" + str(self.value) + ")"
 
     def __repr__(self):
         return "Object(" + str(self) + ")"
@@ -222,6 +233,9 @@ class Object:
 
     def __bool__(self):
         return bool(self.value)
+
+    def get(self, ident: AstIdentifier):
+        return self.value.get(ident)
 
     def add(self, other):
         if not isinstance(other, Object):

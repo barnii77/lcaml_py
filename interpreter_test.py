@@ -15,7 +15,7 @@ from interpreter import Interpreter
 def run():
     interpreter.vm.variables = {}
     result = interpreter.execute()
-    print(result)
+    print("interpreter returned: ", result)
 
 
 if __name__ == '__main__':

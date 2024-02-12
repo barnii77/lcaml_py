@@ -1,6 +1,9 @@
 import lcaml_lexer
 import lcaml_parser
+import lcaml_builtins
 import interpreter_vm
+from parser_types import AstIdentifier
+from token_type import Token, TokenKind
 
 
 class Interpreter:
@@ -34,5 +37,10 @@ class Interpreter:
             Any: The return value of the code
 
         """
+        self.vm.variables = {}
+        for name, value in lcaml_builtins.BUILTINS.items():
+            # construct the value (which is a class)
+            name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
+            self.vm.variables[name_ast_id] = value()
         self.vm.execute()
         return self.vm.return_value

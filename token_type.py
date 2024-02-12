@@ -3,6 +3,7 @@
 class TokenKind:
     LET = "let"
     RETURN = "return_keyword"  # NOTE: because return is a python keyword, this naming is required
+    STRUCT = "struct_keyword"
     IF = "if_keyword"
     ELSE_IF = "else_if_keyword"
     ELSE = "else_keyword"
@@ -15,6 +16,7 @@ class TokenKind:
     BOOLEAN = "boolean"
     EQUALS = "equals"
     SEMICOLON = "semicolon"
+    COMMA = "comma"
     COMMENT = "comment"
     OPERATOR = "operator"
     LPAREN = "lparen"
