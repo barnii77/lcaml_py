@@ -5,11 +5,20 @@ from extern_python import ExternPython
 
 class Print(ExternPython):
     def execute(self, context, args) -> expression.Object:
-        print(*[arg.value for arg in args])
+        print(*[arg.value for arg in args], sep='', end='')
         return expression.Object(interpreter_types.DType.UNIT, None)
 
     def __str__(self) -> str:
         return "Print()"
+
+
+class PrintLn(ExternPython):
+    def execute(self, context, args) -> expression.Object:
+        print(*[arg.value for arg in args], sep='')
+        return expression.Object(interpreter_types.DType.UNIT, None)
+
+    def __str__(self) -> str:
+        return "PrintLn()"
 
 
 class Input(ExternPython):
@@ -23,4 +32,4 @@ class Input(ExternPython):
         return "Input()"
 
 
-BUILTINS = {"print": Print, "input": Input}
+BUILTINS = {"print": Print, "println": PrintLn, "input": Input}

@@ -1,3 +1,4 @@
+import os
 from timeit import timeit
 from interpreter import Interpreter
 
@@ -19,11 +20,13 @@ def run():
 
 
 if __name__ == '__main__':
-    with open('lcaml_test_code.lml', 'r') as f:
-        code = f.read()
-    interpreter = Interpreter(code)
-    num_runs = 1  # 0000
-    time_taken = timeit(run, number=num_runs)
-    # time_taken_python = timeit(python_run, number=num_runs)
-    print(f"Time taken to run {num_runs} times: {time_taken} seconds [average {time_taken / num_runs}]")
-    # print(f"Python took {time_taken_python} seconds [average {time_taken_python / num_runs}]")
+    for file in os.listdir("tests/end_to_end"):
+        with open(f'tests/end_to_end/{file}', 'r') as f:
+            code = f.read()
+        print(f"Running test: {file}")
+        interpreter = Interpreter(code)
+        num_runs = 1  # 000
+        time_taken = timeit(run, number=num_runs)
+        # time_taken_python = timeit(python_run, number=num_runs)
+        print(f"Time taken to run {num_runs} times: {time_taken} seconds [average {time_taken / num_runs}]")
+        # print(f"Python took {time_taken_python} seconds [average {time_taken_python / num_runs}]")

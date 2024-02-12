@@ -1,0 +1,1 @@
+let _ = print "tests if the interpreter works without return from file";

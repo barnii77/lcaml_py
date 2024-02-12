@@ -390,7 +390,8 @@ class FunctionCall(AstRelated, Resolvable):
                 local_context = context.copy()
                 # functions can bind to global values, example in docs
                 # https://github.com/barnii77/lcaml_py/blob/main/docs/interpreter.md#functions
-                local_context.update(function.bounds)
+                non_none_bounds = {k: v for k, v in function.bounds.items() if v is not None}
+                local_context.update(non_none_bounds)
                 # overwrite variables from outer context with local args
                 local_context.update(arg_locals)
                 # spawn new interpreter vm

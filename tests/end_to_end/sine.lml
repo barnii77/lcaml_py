@@ -1,0 +1,38 @@
+let factorial = |n| {
+  if (n <= 1) {
+    return 1;
+  } else {
+    return n * factorial (n - 1);
+  };
+};
+
+let power = |x, n| {
+  if (n == 0) {
+    return 1;
+  } else {
+    return x * power x (n - 1);
+  };
+};
+
+let pi = 3.14159265;
+
+let sin = |x| {
+  let x = x % (2 * pi);
+  let sum_term = |n| {
+    if (n >= 10) {
+      return 0;
+    };
+    if (n % 2 == 0) {
+      let sign = 1;
+    } else {
+      let sign = -1;
+    };
+    let term = sign * (power x (2 * n + 1)) / factorial (2 * n + 1);
+    return term + sum_term (n + 1);
+  };
+  return sum_term 0;
+};
+
+let _ = print "should be 1";
+
+return sin (pi / 2);
