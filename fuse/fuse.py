@@ -147,9 +147,9 @@ elif args.deps:
         #     for dep in deps:
         #         g.edge(file, dep)
         # g.render()
-        g = Digraph("G", filename=args.output, format='pdf', graph_attr={'bgcolor': 'transparent', 'fontname': 'Arial', 'fontsize': '12', 'style': 'filled', 'fillcolor': 'white'})
-        g.attr(rankdir='LR')
-        g.attr(label="Dependency Graph", labelloc="t", fontsize="14")
+        fontsize = '24'
+        g = Digraph("G", filename=args.output, format='pdf', graph_attr={'bgcolor': 'transparent', 'fontname': 'Arial', 'fontsize': fontsize, 'style': 'filled', 'fillcolor': 'white'})
+        g.attr(label="Dependency Graph", labelloc="t", fontsize=fontsize)
 
         import_counts = {file: 0 for file in dependencies.keys()}  # how many things a file imports
         export_counts = {file: 0 for file in dependencies.keys()}  # how often a file is imported
@@ -158,19 +158,19 @@ elif args.deps:
             for dep in deps:
                 export_counts[dep] += 1
                 import_counts[file] += 1
-                g.edge(file, dep, fontsize='8')
+                g.edge(file, dep, fontsize=fontsize)
 
         for file in dependencies.keys():
             if import_counts[file] == 0 and export_counts[file] == 0:  # standalone file
-                g.node(file, shape='ellipse', style='filled', fillcolor='lightgray', fontname='Helvetica', fontsize='10', color='black')
+                g.node(file, shape='ellipse', style='filled', fillcolor='lightgray', fontname='Helvetica', fontsize=fontsize, color='black')
             elif import_counts[file] == 0:  # file does not import anything
-                g.node(file, shape='rect', style='filled', fillcolor='lightyellow', fontname='Helvetica', fontsize='10', color='black')
+                g.node(file, shape='rect', style='filled', fillcolor='lightyellow', fontname='Helvetica', fontsize=fontsize, color='black')
             elif export_counts[file] == 0:  # file is never imported
-                g.node(file, shape='circle', style='filled', fillcolor='red', fontname='Helvetica', fontsize='10', color='black')
+                g.node(file, shape='circle', style='filled', fillcolor='red', fontname='Helvetica', fontsize=fontsize, color='black')
             elif import_counts[file] >= export_counts[file]:  # file imports more than it is imported itself
-                g.node(file, shape='circle', style='filled', fillcolor='lightgreen', fontname='Helvetica', fontsize='10', color='black')
+                g.node(file, shape='circle', style='filled', fillcolor='lightgreen', fontname='Helvetica', fontsize=fontsize, color='black')
             else:  # file is imported more than it imports itself
-                g.node(file, shape='rect', style='filled', fillcolor='lightblue', fontname='Helvetica', fontsize='10', color='black')
+                g.node(file, shape='rect', style='filled', fillcolor='lightblue', fontname='Helvetica', fontsize=fontsize, color='black')
         g.render()
         os.remove(args.output)
     if args.print:
