@@ -53,6 +53,7 @@ class AstStatement(AstRelated):
 
 class Ast(AstRelated):
     """
+    Abstract Syntax Tree
 
     Attributes:
         statements: List of AstStatement objects with parse function

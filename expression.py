@@ -483,7 +483,7 @@ class Expression(AstRelated, Resolvable):
         self.expression = expression
 
     def __str__(self):
-        return "AstExpression(" + str(self.expression) + ")"
+        return "Expression(" + str(self.expression) + ")"
 
     def resolve(self, context: Context):
         """

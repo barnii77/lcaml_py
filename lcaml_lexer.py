@@ -14,18 +14,6 @@ class LexError(Exception):
 class Syntax:
     """
     This class defines the syntax of the language by containing named regex patterns.
-
-    Attributes:
-        let:
-        identifier:
-        integer:
-        floating_point:
-        string_literal:
-        equals:
-        semicolon:
-        comment:
-        operator:
-
     """
 
     def __init__(self, **kwargs):

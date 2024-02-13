@@ -2,7 +2,6 @@
 
 from typing import List, Dict
 import re
-from token_type import Token
 
 class ParseState:
     """
