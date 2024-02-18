@@ -68,3 +68,11 @@ class PhantomType:
         if not isinstance(other, str):
             raise TypeError("Can only add PhantomType to string")
         return other + "PhantomType()"
+
+
+class EqualsAny:
+    def __init__(self, *args):
+        self.args = args
+
+    def __eq__(self, other):
+        return other in self.args

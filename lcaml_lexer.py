@@ -18,7 +18,7 @@ class Syntax:
 
     def __init__(self, **kwargs):
         # non-syntax-pattern stuff
-        self.extract_fn_args: Callable = lambda args_str: args_str.strip("|").split(",")
+        self._extract_fn_args: Callable = lambda args_str: args_str.strip("|").split(",")
 
         # keywords
         self.let = r"let\s"
@@ -38,7 +38,7 @@ class Syntax:
         self.integer = r"-?[0-9]+"
         self._true = r"true"
         self.boolean = r"true|false"
-        self.string_literal = r"\".*\""
+        self.string_literal = r"\"(.*)\"", 2
         self.comment = r"--.*\n"
 
         # operators
@@ -64,9 +64,11 @@ class Syntax:
         self.operator = "|".join("".join(f"\\{c}" for c in op) for op in operators)
 
         # symbols
+        self.dot = r"\."
         self.comma = r","
         self.equals = r"="
         self.semicolon = r";"
+        self.colon = r":"
         self.lparen = r"\("
         self.rparen = r"\)"
         self.lsquare = r"\["
@@ -99,8 +101,13 @@ class Syntax:
 
     def get_compiled_patterns(self) -> dict:
         result = {}
-        for k, pattern in self.patterns():
-            result[k] = re.compile(f"^\\s*({pattern})")
+        for k, pattern_info in self.patterns():
+            if not isinstance(pattern_info, tuple):
+                if not isinstance(pattern_info, str):
+                    raise TypeError(f"Invalid pattern_info type: {type(pattern_info)}")
+                pattern_info = (pattern_info, 1)
+            pattern, group = pattern_info
+            result[k] = re.compile(f"^\\s*({pattern})"), group
         return result
 
 
@@ -139,7 +146,8 @@ class Lexer:
 
         while code.strip() != "":
             # match all the patterns in the syntax
-            for kind, pattern in self.syntax.compiled_patterns.items():
+            for kind, pattern_info in self.syntax.compiled_patterns.items():
+                pattern, group = pattern_info
                 m = pattern.match(code)
                 if m:
                     break
@@ -147,7 +155,7 @@ class Lexer:
                 raise LexError("No matching pattern for " + code)
 
             # save the match as a token
-            token_value = m.group(1).strip()
+            token_value = m.group(group).strip()
             self.tokens.append(Token(kind, token_value))
 
             # increment position

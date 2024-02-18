@@ -1,4 +1,4 @@
-import expression as lcaml_expression
+import lcaml_expression
 import lcaml_parser
 
 from typing import List, Any, Tuple, Set

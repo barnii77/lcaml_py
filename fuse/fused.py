@@ -404,6 +404,7 @@ class TokenKind:
     BOOLEAN = "boolean"
     EQUALS = "equals"
     SEMICOLON = "semicolon"
+    COLON = "colon"
     COMMA = "comma"
     COMMENT = "comment"
     OPERATOR = "operator"

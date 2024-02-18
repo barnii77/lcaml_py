@@ -35,7 +35,12 @@ def indent(code):
 
 
 def refactor_imports(content, files):
-    import_re = re.compile(r"import (\S+)|from (\S+) import (\S+)")
+    illegal_import_as_pattern = r"import \S+ as \S+|from \S+ import \S+ as \S+"
+    illegal_import_as_re = re.compile(illegal_import_as_pattern)
+    illegal_import_as_statements = illegal_import_as_re.findall(content)
+    if illegal_import_as_statements:
+        raise ValueError("import .. as .. is not supported")
+    import_re = re.compile(r"import \S+|from \S+ import \S+")
     import_statements = import_re.findall(content)
     imports = [imp for sublist in import_statements for imp in sublist if imp]
     illegal_imports = [imp for imp in imports if imp + ".py" in files]
@@ -70,7 +75,7 @@ def dependency_graph(contents, files):
     for content, file in zip(contents, files):
         imports = import_re.findall(content)
         imports = [imp for sublist in imports for imp in sublist if imp]
-        imports = [imp for imp in imports if imp + ".py" in python_files]
+        imports = [imp for imp in imports if imp + ".py" in files]
         dependencies[file[:-3]] = imports
     return dependencies
 

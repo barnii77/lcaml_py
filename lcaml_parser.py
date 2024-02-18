@@ -1,4 +1,4 @@
-import expression as lcaml_expression
+import lcaml_expression
 import parser_types
 
 from typing import Union, List, Set

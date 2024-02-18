@@ -1,0 +1,5 @@
+let x = 3;
+let y = 2;
+let s = {x: y, y: x + 7};
+let _ = println "should be 12";
+return s.x + s.y;

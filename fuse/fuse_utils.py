@@ -67,11 +67,11 @@ def add_deps(code, deps, from_imported_symbols_with_namespaces):
 if __name__ == "__main__":
     # Example usage:
     input_code = """
-    from module import func1, func2
-    import module2
-    x = func1()
-    y = func2()
-    z = module2.func3()
-    """
+from module import func1, func2
+import module2
+x = func1()
+y = func2()
+z = module2.func3()
+"""
     output_code = replace_imports_with_namespaces(input_code)
     print(output_code)

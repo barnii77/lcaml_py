@@ -6,7 +6,7 @@ from gettable import Gettable
 from ast_related import AstRelated
 from lcaml_lexer import Syntax
 from token_type import Token, TokenKind
-from lcaml_utils import PhantomType, split_at_context_end
+from lcaml_utils import PhantomType, split_at_context_end, EqualsAny
 from interpreter_types import Object, DType
 from parser_types import AstIdentifier
 from interpreter_vm import InterpreterVM
@@ -103,7 +103,7 @@ class Function(AstRelated, Resolvable):
                 f"Expected function arguments, got {first_token.type} instead"
             )
 
-        identifiers_raw = map(str.strip, syntax.extract_fn_args(first_token.value))
+        identifiers_raw = map(str.strip, syntax._extract_fn_args(first_token.value))
         arguments = list(
             map(
                 lambda raw_id: AstIdentifier(Token(TokenKind.IDENTIFIER, raw_id)),
@@ -203,7 +203,7 @@ class Operation(AstRelated, Resolvable):
             raise ValueError(f"Unknown operation type {self.operation}")
 
 
-class StructParseState:
+class StructTypeParseState:
     ExpectFieldOrEnd = 0
     ExpectCommaOrEnd = 1
 
@@ -234,22 +234,22 @@ class StructType(AstRelated, Resolvable):
         if token.type != TokenKind.LCURLY:
             raise ValueError(f"expected lcurly, got {token}")
 
-        state = StructParseState.ExpectFieldOrEnd
+        state = StructTypeParseState.ExpectFieldOrEnd
         fields: List[AstIdentifier] = []
         while stream:
             token = stream.pop(0)
-            if state == StructParseState.ExpectFieldOrEnd:
+            if state == StructTypeParseState.ExpectFieldOrEnd:
                 if token.type == TokenKind.IDENTIFIER:
                     field = AstIdentifier(token)
                     fields.append(field)
-                    state = StructParseState.ExpectCommaOrEnd
+                    state = StructTypeParseState.ExpectCommaOrEnd
                 elif token.type == TokenKind.RCURLY:
                     break
                 else:
                     raise ValueError(f"Expected field, got {token}")
-            elif state == StructParseState.ExpectCommaOrEnd:
+            elif state == StructTypeParseState.ExpectCommaOrEnd:
                 if token.type == TokenKind.COMMA:
-                    state = StructParseState.ExpectFieldOrEnd
+                    state = StructTypeParseState.ExpectFieldOrEnd
                 elif token.type == TokenKind.RCURLY:
                     break
                 else:
@@ -264,6 +264,13 @@ class StructType(AstRelated, Resolvable):
         return cls(fields), stream, set()
 
 
+class StructInstanceParseState:
+    ExpectFieldOrEnd = 0
+    ExpectColon = 1
+    ExpectExpression = 2
+    ExpectCommaOrEnd = 3
+
+
 class StructInstance(AstRelated, Resolvable, Gettable):
     def __init__(
         self, fields: Dict[AstIdentifier, Resolvable], type: Optional[Resolvable] = None
@@ -275,19 +282,66 @@ class StructInstance(AstRelated, Resolvable, Gettable):
         return f"StructInstance({self.fields})"
 
     def resolve(self, context: Context):
+        for field, expression in self.fields.items():
+            self.fields[field] = expression.resolve(context)
         return Object(DType.STRUCT_INSTANCE, self)
 
     def get(self, ident: AstIdentifier) -> Object:
+        if not isinstance(ident, AstIdentifier):
+            raise TypeError(f"Expected AstIdentifier, got {ident}")
         if ident not in self.fields:
             raise ValueError(f"Field {ident} not found in struct {self}")
         return self.fields[ident]
 
-    # TODO!!!!!!!
     @classmethod
-    def from_stream(cls, stream: TokenStream):
-        ...
+    def from_stream(cls, stream: TokenStream, syntax: Syntax = Syntax()):
+        token = stream.pop(0)
+        if token.type != TokenKind.LCURLY:
+            raise ValueError(f"expected lcurly, got {token}")
+        state = StructInstanceParseState.ExpectFieldOrEnd
+        field = None
+        all_symbols_used = set()
+        assignments = []
+        # expression after : can either end with a } or a , and both cases should be handled
+        _expression_terminating_token = Token(EqualsAny(TokenKind.COMMA, TokenKind.RCURLY), PhantomType())
+        while stream:
+            token = stream.pop(0)
+            # FIXME: this does not work for stacked structures (struct inside struct)
+            if token.type == TokenKind.RCURLY:
+                break
+            if state == StructInstanceParseState.ExpectFieldOrEnd:
+                if token.type != TokenKind.IDENTIFIER:
+                    raise ValueError(f"expected colon, got {token}")
+                field = AstIdentifier(token)
+                state = StructInstanceParseState.ExpectColon
+            elif state == StructInstanceParseState.ExpectColon:
+                if token.type != TokenKind.COLON:
+                    raise ValueError(f"expected colon, got {token}")
+                state = StructInstanceParseState.ExpectExpression
+            elif state == StructInstanceParseState.ExpectExpression:
+                if field is None:
+                    raise ValueError("Interal Error or Syntax Error: Field is None")
+                stream.insert(0, token)
+                expression, stream, symbols_used = Expression.from_stream(stream, syntax, terminating_token=_expression_terminating_token)
+                all_symbols_used.update(symbols_used)
+                assignments.append((field, expression))
+                field = None
+                state = StructInstanceParseState.ExpectCommaOrEnd
+            elif state == StructInstanceParseState.ExpectCommaOrEnd:
+                if token.type == TokenKind.COMMA:
+                    state = StructInstanceParseState.ExpectFieldOrEnd
+                elif token.type == TokenKind.RCURLY:
+                    break
+                else:
+                    raise ValueError(f"expected comma or rcurly, got {token}")
+                state = StructInstanceParseState.ExpectFieldOrEnd
+        if state not in (StructInstanceParseState.ExpectCommaOrEnd, StructInstanceParseState.ExpectFieldOrEnd):
+            raise ValueError("Unexpected end of tokenstream")
+        assignments = dict(assignments)
+        return cls(assignments), stream, all_symbols_used
 
 
+# TODO finish this
 class FieldAccess(AstRelated, Resolvable):
     """
     A class that represents a field access to a value. Can be stacked by having a FieldAccess as the object field of another FieldAccess
@@ -314,7 +368,7 @@ class FieldAccess(AstRelated, Resolvable):
 
     def resolve(self, context: Context) -> Object:
         obj = self.object.resolve(context)
-        if isinstance(obj, Gettable):
+        if isinstance(obj, (Gettable, Object)):  # Object is fine if wrapped value is gettable
             return obj.get(self.field)
         else:
             raise TypeError(
@@ -390,7 +444,9 @@ class FunctionCall(AstRelated, Resolvable):
                 local_context = context.copy()
                 # functions can bind to global values, example in docs
                 # https://github.com/barnii77/lcaml_py/blob/main/docs/interpreter.md#functions
-                non_none_bounds = {k: v for k, v in function.bounds.items() if v is not None}
+                non_none_bounds = {
+                    k: v for k, v in function.bounds.items() if v is not None
+                }
                 local_context.update(non_none_bounds)
                 # overwrite variables from outer context with local args
                 local_context.update(arg_locals)
@@ -493,18 +549,20 @@ class Expression(AstRelated, Resolvable):
 
     @classmethod
     def _build_from(cls, stream: TokenStream, syntax: Syntax = Syntax()):
+        # TODO fix this docstring
         """
         Build from stream raw (expects stream to not contain any other tokens that do not belong to expression)
         This function does a total of 7 passes across the data:
             1. Make operations without parameters and parse tokens into constants, variables or Exressions
             2. Identify function calls
             (3.x) Fill out operations with their args:
-                3.1. ! ~
-                3.2. * / % & |
-                3.3. + -
-                3.4 | &
-                3.5. == != < > <= >=
-                3.6. || &&
+                3.1 . (field access)
+                3.2. ! ~
+                3.3. * / % & |
+                3.4. + -
+                3.5 | &
+                3.6. == != < > <= >=
+                3.7. || &&
 
         Args:
             stream: stream (only of Expression) to build from
@@ -527,6 +585,9 @@ class Expression(AstRelated, Resolvable):
             if token.type == TokenKind.OPERATOR:
                 op = Operation(None, token, None)
                 first_pass_buffer.append(op)
+            elif token.type == TokenKind.DOT:
+                fa = FieldAccess(None, None)  # reuse logic from Operation handling
+                first_pass_buffer.append(fa)
             elif token.type in TokenKind._builtin_types:
                 first_pass_buffer.append(Constant(token, syntax))
             elif token.type == TokenKind.IDENTIFIER:
@@ -541,7 +602,6 @@ class Expression(AstRelated, Resolvable):
             else:
                 raise ValueError(f"Unexpected token {token}")
 
-        # TODO: detect struct instantiations
         # second pass: identify function calls
         FUNCTION_CALL_ALLOWED_TYPES = (Constant, Variable, cls)
         second_pass_buffer = []
@@ -580,26 +640,49 @@ class Expression(AstRelated, Resolvable):
             else:
                 second_pass_buffer.append(thing)
 
+        this_pass_buffer, prev_pass_buffer = [], second_pass_buffer
         # third set of passes: fill out operations with their args
         # NOTE: this is a sequence of related passes because ! ~ have to be done before * / %
         # NOTE: and * / % have to be done before + -
         # NOTE and + - have to be done before | & which have to be done before == != < > <= >=
         # NOTE: which have to be done before || &&
 
+        while prev_pass_buffer:
+            thing = prev_pass_buffer.pop(0)
+
+            if isinstance(thing, FieldAccess):
+                # NOTE: binary operands are always on the left and right
+                if not prev_pass_buffer:
+                    raise ValueError(
+                        "Binary operand must have left and right operand, but doesn't have right"
+                    )
+                if not this_pass_buffer:
+                    raise ValueError(
+                        "Binary operand must have left and right operand, but doesn't have left"
+                    )
+                left = this_pass_buffer.pop()
+                right = prev_pass_buffer.pop(0)
+                # if variable, unwrap to raw identifier
+                if isinstance(right, Variable):
+                    right = right.identifier
+                thing.object = left
+                thing.field = right
+
+            this_pass_buffer.append(thing)
         # stage one of third pass (unary): ! ~
-        third_pass_buffer = []
-        while second_pass_buffer:
-            thing = second_pass_buffer.pop(0)
+        this_pass_buffer, prev_pass_buffer = [], this_pass_buffer
+        while prev_pass_buffer:
+            thing = prev_pass_buffer.pop(0)
 
             if isinstance(thing, Operation):
                 if thing.is_unary:
                     # NOTE: unary operands are always on the right
-                    if not second_pass_buffer:
+                    if not prev_pass_buffer:
                         raise ValueError("Unary operand must have right operand")
-                    right = second_pass_buffer.pop(0)
+                    right = prev_pass_buffer.pop(0)
                     thing.right = right  # thing is unary operation
 
-            third_pass_buffer.append(thing)
+            this_pass_buffer.append(thing)
 
         # all the other passes (binary) are kind of the same
         sorted_pass_operations = (
@@ -629,7 +712,6 @@ class Expression(AstRelated, Resolvable):
                 OperationKind.AND,
             ),
         )
-        this_pass_buffer = third_pass_buffer
         for pass_operations in sorted_pass_operations:
             # use prev_pass_buffer to store previous pass
             this_pass_buffer, prev_pass_buffer = [], this_pass_buffer
@@ -684,7 +766,6 @@ class Expression(AstRelated, Resolvable):
             Expression: AstExpression object built from tokenstream
             Stream: Remaining tokenstream
         """
-        # FIXME will not work once functions are supported
         if not stream:
             raise ValueError("Empty stream")
         elif stream[0].type == TokenKind.FUNCTION_ARGS:
@@ -696,7 +777,13 @@ class Expression(AstRelated, Resolvable):
         elif stream[0].type == TokenKind.STRUCT:
             struct_type, remaining_stream, symbols_used = StructType.from_stream(stream)
             return cls(struct_type), remaining_stream, symbols_used
-
+        elif stream[0].type == TokenKind.LCURLY:
+            (
+                struct_instance,
+                remaining_stream,
+                symbols_used,
+            ) = StructInstance.from_stream(stream, syntax)
+            return cls(struct_instance), remaining_stream, symbols_used
         if terminating_token not in stream:
             raise ValueError(f"Expression must end with a {terminating_token}")
 
@@ -705,6 +792,8 @@ class Expression(AstRelated, Resolvable):
         expression_stream, remaining_stream = split_at_context_end(
             stream, terminating_token
         )
+        if not expression_stream:
+            raise ValueError("Empty expression")
 
         expression, symbols_used = cls._build_from(expression_stream, syntax)
         return expression, remaining_stream, symbols_used

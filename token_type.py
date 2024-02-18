@@ -16,6 +16,8 @@ class TokenKind:
     BOOLEAN = "boolean"
     EQUALS = "equals"
     SEMICOLON = "semicolon"
+    DOT = "dot"
+    COLON = "colon"
     COMMA = "comma"
     COMMENT = "comment"
     OPERATOR = "operator"
