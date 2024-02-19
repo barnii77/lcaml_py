@@ -39,8 +39,7 @@ def replace_imports_with_namespaces(code):
 def replace_import_from(m):
     module = m.group(1)
     imports = m.group(2).split(",")
-    namespace = module
-    replacements = [f"{namespace}.{imp.strip()}" for imp in imports]
+    replacements = [f"{module}.{imp.strip()}" for imp in imports]
     return f"import {', '.join(replacements)}"
 
 
@@ -53,13 +52,17 @@ def add_deps(code, deps, from_imported_symbols_with_namespaces):
 
     """
     for dep in deps:
-        code = code.replace(dep, f"__DEPS.{dep}")
+        pattern = rf"\b{dep}\b"
+        code = re.sub(pattern, lambda match: f"__DEPS.{match.group(0)}", code)
     lines = []
     for line in code.splitlines():
-        if not line.startswith('import'):
+        if not line.startswith("import"):
             for symbol, module in from_imported_symbols_with_namespaces:
-                line = line.replace(symbol, f"__DEPS.{module}.{symbol}")
-        lines.append(line)
+                pattern = rf"\b{symbol}\b"
+                line = re.sub(
+                    pattern, lambda match: f"__DEPS.{module}.{match.group(0)}", line
+                )
+            lines.append(line)
     code = "\n".join(lines)
     return code
 

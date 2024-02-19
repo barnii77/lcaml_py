@@ -42,7 +42,9 @@ def refactor_imports(content, files):
         raise ValueError("import .. as .. is not supported")
     import_re = re.compile(r"import \S+|from \S+ import \S+")
     import_statements = import_re.findall(content)
-    imports = [imp for sublist in import_statements for imp in sublist if imp]
+    imports = []
+    for import_stmt in import_statements:
+        imports.append(list(filter(bool, import_stmt.split(" ")))[1])
     illegal_imports = [imp for imp in imports if imp + ".py" in files]
     legal_imports = [imp for imp in imports if imp not in illegal_imports]
     legal_import_statements = set()
@@ -55,7 +57,7 @@ def refactor_imports(content, files):
     for imp in legal_import_statements:
         content = content.replace(imp, "")
     content = fuse_utils.replace_imports_with_namespaces(content)
-    return content, "\n".join(legal_import_statements)
+    return content.strip(), "\n".join(legal_import_statements)
 
 
 def read_files(files):

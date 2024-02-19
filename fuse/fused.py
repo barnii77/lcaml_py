@@ -769,11 +769,6 @@ class StructInstance(AstRelated, Resolvable, Gettable):
             raise ValueError(f"Field {ident} not found in struct {self}")
         return self.fields[ident]
 
-    # TODO!!!!!!!
-    @classmethod
-    def from_stream(cls, stream: TokenStream):
-        ...
-
 
 class FieldAccess(AstRelated, Resolvable):
     """

@@ -155,7 +155,7 @@ class Lexer:
                 raise LexError("No matching pattern for " + code)
 
             # save the match as a token
-            token_value = m.group(group).strip()
+            token_value = m.group(group)
             self.tokens.append(Token(kind, token_value))
 
             # increment position

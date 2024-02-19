@@ -1,0 +1,4 @@
+let type = struct {x, y};
+let instance = {x: 1, y: 2};
+let _ = println "should be true";
+return isinstance instance type;

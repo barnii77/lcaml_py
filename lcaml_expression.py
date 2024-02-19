@@ -341,7 +341,6 @@ class StructInstance(AstRelated, Resolvable, Gettable):
         return cls(assignments), stream, all_symbols_used
 
 
-# TODO finish this
 class FieldAccess(AstRelated, Resolvable):
     """
     A class that represents a field access to a value. Can be stacked by having a FieldAccess as the object field of another FieldAccess
@@ -549,7 +548,6 @@ class Expression(AstRelated, Resolvable):
 
     @classmethod
     def _build_from(cls, stream: TokenStream, syntax: Syntax = Syntax()):
-        # TODO fix this docstring
         """
         Build from stream raw (expects stream to not contain any other tokens that do not belong to expression)
         This function does a total of 7 passes across the data:
