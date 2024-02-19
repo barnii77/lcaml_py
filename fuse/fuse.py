@@ -1,8 +1,12 @@
 import argparse
+import strip_hints
 import os
 import re
 import sys
+
+import autopep8
 from graphviz import Digraph
+
 import fuse_utils
 
 parser = argparse.ArgumentParser()
@@ -13,9 +17,7 @@ parser.add_argument(
 parser.add_argument(
     "--files", type=str, default=None, help="Ordered list of files separated by spaces"
 )
-parser.add_argument(
-    "--deps", action="store_true", help="Analyze dependencies"
-)
+parser.add_argument("--deps", action="store_true", help="Analyze dependencies")
 parser.add_argument(
     "--print", action="store_true", help="Print the dependencies of Python files"
 )
@@ -24,14 +26,31 @@ parser.add_argument(
     action="store_true",
     help="Create a graph visualization of the dependencies",
 )
-parser.add_argument("-o", "--output", type=str, help="Output file name. If using --visualize, the file should not have .pdf extension.")
+parser.add_argument(
+    "-o",
+    "--output",
+    type=str,
+    default="fused.py",
+    help="Output file name. If using --visualize, the file should not have .pdf extension.",
+)
 args = parser.parse_args()
 if args.output.endswith(".pdf"):
     args.output = args.output[:-4]
 
+if not args.fuse and not args.deps:  # interpret as test run
+    os.chdir("/home/david/projects/lcaml/lcaml_py/fuse/tests/")
+    args.fuse = True
+    args.output = "fused.py"
+
 
 def indent(code):
     return "\n".join(map(lambda line: " " * 4 + line, code.split("\n")))
+
+
+def remove_type_annotations_and_format(code):
+    modified_code = strip_hints.strip_string_to_string(code)
+    formatted_code = autopep8.fix_code(modified_code)
+    return formatted_code
 
 
 def refactor_imports(content, files):
@@ -40,8 +59,11 @@ def refactor_imports(content, files):
     illegal_import_as_statements = illegal_import_as_re.findall(content)
     if illegal_import_as_statements:
         raise ValueError("import .. as .. is not supported")
-    import_re = re.compile(r"import \S+|from \S+ import \S+")
+    import_re = re.compile(
+        r"(import [a-zA-Z0-9_]+)|(from [a-zA-Z0-9_]+ import [a-zA-Z0-9_]+(\s*,\s*[a-zA-Z0-9_]+)*)"
+    )
     import_statements = import_re.findall(content)
+    import_statements = list(map(lambda i: list(filter(bool, i))[0], import_statements))
     imports = []
     for import_stmt in import_statements:
         imports.append(list(filter(bool, import_stmt.split(" ")))[1])
@@ -133,6 +155,7 @@ def {f}_factory():
         fused_code += "\n"
 
     fused_code += "\n### Your turn from here ###"
+    fused_code = remove_type_annotations_and_format(fused_code)
 
     if args.output:
         with open(args.output, "w") as f:
@@ -154,12 +177,27 @@ elif args.deps:
         #     for dep in deps:
         #         g.edge(file, dep)
         # g.render()
-        fontsize = '24'
-        g = Digraph("G", filename=args.output, format='pdf', graph_attr={'bgcolor': 'transparent', 'fontname': 'Arial', 'fontsize': fontsize, 'style': 'filled', 'fillcolor': 'white'})
+        fontsize = "24"
+        g = Digraph(
+            "G",
+            filename=args.output,
+            format="pdf",
+            graph_attr={
+                "bgcolor": "transparent",
+                "fontname": "Arial",
+                "fontsize": fontsize,
+                "style": "filled",
+                "fillcolor": "white",
+            },
+        )
         g.attr(label="Dependency Graph", labelloc="t", fontsize=fontsize)
 
-        import_counts = {file: 0 for file in dependencies.keys()}  # how many things a file imports
-        export_counts = {file: 0 for file in dependencies.keys()}  # how often a file is imported
+        import_counts = {
+            file: 0 for file in dependencies.keys()
+        }  # how many things a file imports
+        export_counts = {
+            file: 0 for file in dependencies.keys()
+        }  # how often a file is imported
 
         for file, deps in dependencies.items():
             for dep in deps:
@@ -169,15 +207,57 @@ elif args.deps:
 
         for file in dependencies.keys():
             if import_counts[file] == 0 and export_counts[file] == 0:  # standalone file
-                g.node(file, shape='ellipse', style='filled', fillcolor='lightgray', fontname='Helvetica', fontsize=fontsize, color='black')
+                g.node(
+                    file,
+                    shape="ellipse",
+                    style="filled",
+                    fillcolor="lightgray",
+                    fontname="Helvetica",
+                    fontsize=fontsize,
+                    color="black",
+                )
             elif import_counts[file] == 0:  # file does not import anything
-                g.node(file, shape='rect', style='filled', fillcolor='lightyellow', fontname='Helvetica', fontsize=fontsize, color='black')
+                g.node(
+                    file,
+                    shape="rect",
+                    style="filled",
+                    fillcolor="lightyellow",
+                    fontname="Helvetica",
+                    fontsize=fontsize,
+                    color="black",
+                )
             elif export_counts[file] == 0:  # file is never imported
-                g.node(file, shape='circle', style='filled', fillcolor='red', fontname='Helvetica', fontsize=fontsize, color='black')
-            elif import_counts[file] >= export_counts[file]:  # file imports more than it is imported itself
-                g.node(file, shape='circle', style='filled', fillcolor='lightgreen', fontname='Helvetica', fontsize=fontsize, color='black')
+                g.node(
+                    file,
+                    shape="circle",
+                    style="filled",
+                    fillcolor="red",
+                    fontname="Helvetica",
+                    fontsize=fontsize,
+                    color="black",
+                )
+            elif (
+                import_counts[file] >= export_counts[file]
+            ):  # file imports more than it is imported itself
+                g.node(
+                    file,
+                    shape="circle",
+                    style="filled",
+                    fillcolor="lightgreen",
+                    fontname="Helvetica",
+                    fontsize=fontsize,
+                    color="black",
+                )
             else:  # file is imported more than it imports itself
-                g.node(file, shape='rect', style='filled', fillcolor='lightblue', fontname='Helvetica', fontsize=fontsize, color='black')
+                g.node(
+                    file,
+                    shape="rect",
+                    style="filled",
+                    fillcolor="lightblue",
+                    fontname="Helvetica",
+                    fontsize=fontsize,
+                    color="black",
+                )
         g.render()
         os.remove(args.output)
     if args.print:

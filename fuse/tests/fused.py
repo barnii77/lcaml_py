@@ -5,16 +5,15 @@ def b_factory():
     class __DEPS:
         pass
 
-    import abc
     from typing import Union
+    import abc
 
     class ModuleDef:
-        
-        
-        
-        x = Union[int, str]
-        __DEPS.a = abc.ABCMeta()
-        print(x, __DEPS.a)
+        class B:
+            def __init__(self):
+                x = Union[int, str]
+                __DEPS.a = abc.ABCMeta()
+                print(x, __DEPS.a)
 
     return ModuleDef, __DEPS
 
@@ -27,12 +26,14 @@ def a_factory():
         pass
 
     import abc
-    from typing import Union
+    from typing import Union, List, Dict
 
     class ModuleDef:
-        x2 = Union[int, str]
-        a2 = abc.ABCMeta()
-        print(x, __DEPS.b)
+        class X:
+            def __init__(self):
+                self.x = 1
+                x2 = Union[int, str]
+                print(self.x, __DEPS.b, __DEPS.c.C, __DEPS.c.D, x2)
 
     return ModuleDef, __DEPS
 
@@ -44,10 +45,12 @@ def c_factory():
     class __DEPS:
         pass
 
-    
-
     class ModuleDef:
-        x = 3
+        class C:
+            x = 3
+
+        class D:
+            y = 4
 
     return ModuleDef, __DEPS
 
@@ -62,7 +65,6 @@ b_deps.a = a
 
 a_deps.b = b
 a_deps.c = c
-
 
 
 ### Your turn from here ###
