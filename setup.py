@@ -1,5 +1,6 @@
 import os
 import requests
+from urllib.parse import urlparse
 
 
 def download_gist_files(gist_url, local_folder):
@@ -10,16 +11,20 @@ def download_gist_files(gist_url, local_folder):
     # Create local folder
     os.makedirs(local_folder)
 
-    # Make GET request to fetch the gist
-    response = requests.get(gist_url)
+    # Extract the Gist ID from the URL
+    gist_id = os.path.basename(urlparse(gist_url).path)
+
+    # Make GET request to fetch the gist metadata
+    metadata_url = f"https://api.github.com/gists/{gist_id}"
+    response = requests.get(metadata_url)
     if response.status_code != 200:
-        raise RuntimeError("Failed to fetch gist.")
+        raise RuntimeError("Failed to fetch gist metadata.")
 
     # Parse response JSON
-    files = response.json()["files"]
+    gist_data = response.json()
 
     # Iterate over files and download each one
-    for filename, file_info in files.items():
+    for filename, file_info in gist_data["files"].items():
         content_url = file_info["raw_url"]
         content_response = requests.get(content_url)
 
@@ -33,8 +38,9 @@ def download_gist_files(gist_url, local_folder):
     print("Files downloaded successfully.")
 
 
-# FIXME: Replace with your own gist URL
-gist_url = "https://gist.githubusercontent.com/username/gist_id"
+gist_url = (
+    "https://gist.githubusercontent.com/barnii77/8aaa9d0e71880c18792c9de85102c802"
+)
 local_folder = "lcaml_interpreter"
 
 download_gist_files(gist_url, local_folder)
