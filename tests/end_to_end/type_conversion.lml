@@ -1,0 +1,7 @@
+let a = 5;
+let f = float a;
+let i = int f;
+let s = string i;
+let b = bool i;
+let u = ();
+return {f: f, i: i, s: s, b: b, u: u};

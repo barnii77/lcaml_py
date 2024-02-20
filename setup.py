@@ -39,8 +39,8 @@ def download_gist_files(gist_url, local_folder):
 
 
 gist_url = (
-    "https://gist.githubusercontent.com/barnii77/8aaa9d0e71880c18792c9de85102c802"
+    "https://gist.githubusercontent.com/Schimeltuer144/453f6ba8d667dbfdb73e55ce5ba72b99"
 )
-local_folder = "lcaml_interpreter"
+local_folder = "el_carml_interpreter"
 
 download_gist_files(gist_url, local_folder)

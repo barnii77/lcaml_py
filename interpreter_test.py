@@ -1,4 +1,5 @@
 import os
+import sys
 from timeit import timeit
 from interpreter import Interpreter
 
@@ -20,8 +21,14 @@ def run():
 
 
 if __name__ == '__main__':
-    for file in os.listdir("tests/end_to_end"):
-        with open(f'tests/end_to_end/{file}', 'r') as f:
+    if len(sys.argv) > 1:
+        folder = sys.argv[1]
+    else:
+        folder = "tests/end_to_end"
+    if folder.endswith("/"):
+        folder = folder[:-1]
+    for file in os.listdir(folder):
+        with open(f'{folder}/{file}', 'r') as f:
             code = f.read()
         print(f"Running test: {file}")
         print()

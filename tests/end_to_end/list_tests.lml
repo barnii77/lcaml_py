@@ -1,0 +1,6 @@
+let l = list ();
+let _ = append l 1;
+let _ = append l 2;
+let _ = pop l;
+let _ = append l 3;
+return l;

@@ -1,0 +1,40 @@
+let input_int = |prompt| {
+    let input = input prompt;
+    let number = int input;
+    if (number == ()) {
+        let _ = println "ungültige eingabe";
+        return (input_int prompt);
+    };
+    return number;
+};
+
+let ggT_classic = |a, b| {
+    if (a < 1 || b < 1) {
+        return ();
+    };
+    if (a > b) {
+        return ggT_classic (a - b) b;
+    } else if (a < b) {
+        return ggT_classic a (b - a);
+    } else {
+        return a;
+    };
+};
+
+let ggT_modern = |a, b| {
+    if (a < 1 || b < 1) {
+        return ();
+    };
+    let remainder = a % b;
+    if (remainder > 0) {
+        return ggT_modern b remainder;
+    };
+    return b;
+};
+
+let a = input_int "erste Zahl: ";
+let b = input_int "zweite Zahl: ";
+let x1 = ggT_classic a b;
+let x2 = ggT_modern a b;
+let _ = println "klassisch: " (string x1);
+let _ = println "modern: " (string x2);
