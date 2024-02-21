@@ -40,19 +40,17 @@ class Input(ExternPython):
 class IsInstance(ExternPython):
     def execute(self, context, args) -> interpreter_types.Object:
         if len(args) != 2:
-            raise ValueError("is_like takes 2 arguments: struct_instance, struct_type")
-        struct_instance, struct_type = args[0].value, args[1].value
-        if not isinstance(struct_instance, lcaml_expression.Table):
-            raise TypeError(
-                f"Expected struct_instance to be a StructInstance, got {type(struct_instance)}"
-            )
+            raise ValueError("is_like takes 2 arguments: table, struct_type")
+        table, struct_type = args[0].value, args[1].value
+        if not isinstance(table, lcaml_expression.Table):
+            raise TypeError(f"Expected table to be a Table, got {type(table)}")
         if not isinstance(struct_type, lcaml_expression.StructType):
             raise TypeError(
                 f"Expected struct_type to be a StructType, got {type(struct_type)}"
             )
         return interpreter_types.Object(
             interpreter_types.DType.BOOL,
-            set(struct_type.fields) == set(struct_instance.fields.keys()),
+            set(struct_type.fields) == set(table.fields.keys()),
         )
 
     def __str__(self) -> str:
@@ -62,7 +60,7 @@ class IsInstance(ExternPython):
 class IsLike(ExternPython):
     def execute(self, context, args) -> interpreter_types.Object:
         if len(args) != 2:
-            raise ValueError("is_like takes 2 arguments: struct_instance, struct_type")
+            raise ValueError("is_like takes 2 arguments: table, struct_type")
         a, b = args[0].value, args[1].value
         if isinstance(a, lcaml_expression.Table) and isinstance(
             b, lcaml_expression.Table
@@ -153,7 +151,7 @@ class Set(ExternPython):
             raise ValueError("set takes 1 argument: list")
         if not all(isinstance(arg, interpreter_types.Object) for arg in args):
             raise ValueError("set takes 1 argument: list")
-        if not args[0].type == interpreter_types.DType.STRUCT_INSTANCE:
+        if not args[0].type == interpreter_types.DType.TABLE:
             raise ValueError("set takes 1 argument: list")
         table, key, value = args[0].value, args[1], args[2]
         table.fields[key] = value
@@ -169,7 +167,7 @@ class Get(ExternPython):
             raise ValueError("get takes 2 arguments: table, key")
         if not all(isinstance(arg, interpreter_types.Object) for arg in args):
             raise ValueError("get takes 2 arguments: table, key")
-        if not args[0].type == interpreter_types.DType.STRUCT_INSTANCE:
+        if not args[0].type == interpreter_types.DType.TABLE:
             raise ValueError("get takes 2 arguments: table, key")
         table, key = args[0].value, args[1]
         if key not in table.fields:
@@ -201,7 +199,7 @@ class List(ExternPython):
             }
         )
         return interpreter_types.Object(
-            interpreter_types.DType.STRUCT_INSTANCE,
+            interpreter_types.DType.TABLE,
             lcaml_expression.Table(ret),
         )
 
@@ -215,7 +213,7 @@ class Append(ExternPython):
             raise ValueError("append takes 2 arguments: list, value")
         if not all(isinstance(arg, interpreter_types.Object) for arg in args):
             raise ValueError("append takes 2 arguments: list, value")
-        if not args[0].type == interpreter_types.DType.STRUCT_INSTANCE:
+        if not args[0].type == interpreter_types.DType.TABLE:
             raise ValueError("append takes 2 arguments: list, value")
         list_, value = args[0].value, args[1]
         list_.fields[len(list_.fields)] = value
@@ -231,7 +229,7 @@ class Pop(ExternPython):
             raise ValueError("append takes 2 arguments: list, index")
         if not all(isinstance(arg, interpreter_types.Object) for arg in args):
             raise ValueError("internal error")
-        if not args[0].type == interpreter_types.DType.STRUCT_INSTANCE:
+        if not args[0].type == interpreter_types.DType.TABLE:
             raise ValueError("append takes 2 arguments: list, index")
         list_ = args[0].value
         ret = list_.fields.pop(len(list_.fields) - 1)

@@ -17,7 +17,7 @@ class DType:
     UNIT = 4
     FUNCTION = 5
     STRUCT_TYPE = 6
-    STRUCT_INSTANCE = 7
+    TABLE = 7
     EXTERN_PYTHON = 8
 
     @staticmethod
@@ -36,8 +36,8 @@ class DType:
             return "Function"
         elif code == DType.STRUCT_TYPE:
             return "StructType"
-        elif code == DType.STRUCT_INSTANCE:
-            return "StructInstance"
+        elif code == DType.TABLE:
+            return "Table"
         elif code == DType.EXTERN_PYTHON:
             return "ExternPython"
         else:
@@ -115,7 +115,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -126,7 +126,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -137,7 +137,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -148,7 +148,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -159,7 +159,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -170,18 +170,18 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
-            STRUCT_INSTANCE: {
+            TABLE: {
                 INT: BOOL,
                 FLOAT: BOOL,
                 STRING: BOOL,
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -192,7 +192,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -203,7 +203,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -216,7 +216,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -227,7 +227,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -238,7 +238,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -249,7 +249,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -260,7 +260,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -271,18 +271,18 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
-            STRUCT_INSTANCE: {
+            TABLE: {
                 INT: BOOL,
                 FLOAT: BOOL,
                 STRING: BOOL,
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -293,7 +293,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },
@@ -304,7 +304,7 @@ class DType:
                 BOOL: BOOL,
                 FUNCTION: BOOL,
                 STRUCT_TYPE: BOOL,
-                STRUCT_INSTANCE: BOOL,
+                TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
             },

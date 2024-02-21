@@ -1,19 +1,12 @@
-from typing import Dict
+from typing import Dict, Any
 from parser_types import AstIdentifier
 
 
-class Object:
-    """
-    this is a dummy class used for type hints replacing the object class from interpreter_types
-    """
-    pass
-
-
-Context = Dict[AstIdentifier, Object]
+Context = Dict[AstIdentifier, Any]
 
 
 class Resolvable:
-    def resolve(self, context: Context) -> Object:
+    def resolve(self, context: Context) -> Any:
         """
         This function resolves the value of the expression.
         """

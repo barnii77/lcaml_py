@@ -39,7 +39,7 @@ class Syntax:
         self.integer = r"-?[0-9]+"
         self._true = r"true"
         self.boolean = r"true|false"
-        self.string_literal = r"\"(.*)\"", 2
+        self.string_literal = r"\"(.*?)\"", 2
         self.comment = r"--.*\n"
 
         # operators

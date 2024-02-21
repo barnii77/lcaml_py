@@ -28,6 +28,8 @@ if __name__ == '__main__':
     if folder.endswith("/"):
         folder = folder[:-1]
     for file in os.listdir(folder):
+        if not file.endswith(".lml") or file.startswith("_"):
+            continue
         with open(f'{folder}/{file}', 'r') as f:
             code = f.read()
         print(f"Running test: {file}")

@@ -1,0 +1,8 @@
+let min = |a, b| {
+  fi(a < b) {
+    ret a;
+  };
+  ret b;
+};
+
+ret {min: min};

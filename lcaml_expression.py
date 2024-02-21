@@ -275,7 +275,7 @@ class StructType(AstRelated, Resolvable):
         return cls(fields), stream, set()
 
 
-class StructInstanceParseState:
+class TableParseState:
     ExpectFieldOrEnd = 0
     ExpectColon = 1
     ExpectExpression = 2
@@ -297,12 +297,12 @@ class Table(AstRelated, Resolvable, Gettable):
         self.fields = fields
 
     def __str__(self):
-        return f"StructInstance({self.fields})"
+        return f"Table({self.fields})"
 
     def resolve(self, context: Context):
         for field, expression in self.fields.items():
             self.fields[field] = expression.resolve(context)
-        return Object(DType.STRUCT_INSTANCE, self)
+        return Object(DType.TABLE, self)
 
     def get(self, ident: AstIdentifier) -> Object:
         if not isinstance(ident, AstIdentifier):
@@ -316,7 +316,7 @@ class Table(AstRelated, Resolvable, Gettable):
         token = stream.pop(0)
         if token.type != TokenKind.LCURLY:
             raise ValueError(f"expected lcurly, got {token}")
-        state = StructInstanceParseState.ExpectFieldOrEnd
+        state = TableParseState.ExpectFieldOrEnd
         field = None
         all_symbols_used = set()
         assignments = []
@@ -329,16 +329,16 @@ class Table(AstRelated, Resolvable, Gettable):
             # FIXME: this does not work for stacked structures (struct inside struct)
             if token.type == TokenKind.RCURLY:
                 break
-            if state == StructInstanceParseState.ExpectFieldOrEnd:
+            if state == TableParseState.ExpectFieldOrEnd:
                 if token.type != TokenKind.IDENTIFIER:
                     raise ValueError(f"expected colon, got {token}")
                 field = AstIdentifier(token)
-                state = StructInstanceParseState.ExpectColon
-            elif state == StructInstanceParseState.ExpectColon:
+                state = TableParseState.ExpectColon
+            elif state == TableParseState.ExpectColon:
                 if token.type != TokenKind.COLON:
                     raise ValueError(f"expected colon, got {token}")
-                state = StructInstanceParseState.ExpectExpression
-            elif state == StructInstanceParseState.ExpectExpression:
+                state = TableParseState.ExpectExpression
+            elif state == TableParseState.ExpectExpression:
                 if field is None:
                     raise ValueError("Interal Error or Syntax Error: Field is None")
                 stream.insert(0, token)
@@ -348,18 +348,18 @@ class Table(AstRelated, Resolvable, Gettable):
                 all_symbols_used.update(symbols_used)
                 assignments.append((field, expression))
                 field = None
-                state = StructInstanceParseState.ExpectCommaOrEnd
-            elif state == StructInstanceParseState.ExpectCommaOrEnd:
+                state = TableParseState.ExpectCommaOrEnd
+            elif state == TableParseState.ExpectCommaOrEnd:
                 if token.type == TokenKind.COMMA:
-                    state = StructInstanceParseState.ExpectFieldOrEnd
+                    state = TableParseState.ExpectFieldOrEnd
                 elif token.type == TokenKind.RCURLY:
                     break
                 else:
                     raise ValueError(f"expected comma or rcurly, got {token}")
-                state = StructInstanceParseState.ExpectFieldOrEnd
+                state = TableParseState.ExpectFieldOrEnd
         if state not in (
-            StructInstanceParseState.ExpectCommaOrEnd,
-            StructInstanceParseState.ExpectFieldOrEnd,
+            TableParseState.ExpectCommaOrEnd,
+            TableParseState.ExpectFieldOrEnd,
         ):
             raise ValueError("Unexpected end of tokenstream")
         assignments = dict(assignments)
@@ -807,11 +807,11 @@ class Expression(AstRelated, Resolvable):
             return cls(struct_type), remaining_stream, symbols_used
         elif stream[0].type == TokenKind.LCURLY:
             (
-                struct_instance,
+                table,
                 remaining_stream,
                 symbols_used,
             ) = Table.from_stream(stream, syntax)
-            return cls(struct_instance), remaining_stream, symbols_used
+            return cls(table), remaining_stream, symbols_used
         if terminating_token not in stream:
             raise ValueError(f"Expression must end with a {terminating_token}")
 
