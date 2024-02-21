@@ -1,3 +1,5 @@
+import os
+import interpreter
 import lcaml_expression
 import interpreter_types
 from extern_python import ExternPython
@@ -61,14 +63,14 @@ class IsLike(ExternPython):
             raise ValueError("is_like takes 2 arguments: struct_instance, struct_type")
         a, b = args[0].value, args[1].value
         if isinstance(a, lcaml_expression.StructInstance) and isinstance(
-                b, lcaml_expression.StructInstance
+            b, lcaml_expression.StructInstance
         ):
             return interpreter_types.Object(
                 interpreter_types.DType.BOOL,
                 set(a.fields.keys()) == set(b.fields.keys()),
             )
         elif not isinstance(a, lcaml_expression.StructInstance) and not isinstance(
-                b, lcaml_expression.StructInstance
+            b, lcaml_expression.StructInstance
         ):
             return interpreter_types.Object(
                 interpreter_types.DType.BOOL, a.dtype == b.dtype
@@ -88,9 +90,7 @@ class Float(ExternPython):
                 interpreter_types.DType.INT, float(args[0].value)
             )
         except ValueError:
-            res = interpreter_types.Object(
-                interpreter_types.DType.UNIT, None
-            )
+            res = interpreter_types.Object(interpreter_types.DType.UNIT, None)
         return res
 
     def __str__(self) -> str:
@@ -106,9 +106,7 @@ class Int(ExternPython):
                 interpreter_types.DType.INT, int(args[0].value)
             )
         except ValueError:
-            res = interpreter_types.Object(
-                interpreter_types.DType.UNIT, None
-            )
+            res = interpreter_types.Object(interpreter_types.DType.UNIT, None)
         return res
 
     def __str__(self) -> str:
@@ -124,9 +122,7 @@ class String(ExternPython):
                 interpreter_types.DType.STRING, str(args[0].value)
             )
         except ValueError:
-            res = interpreter_types.Object(
-                interpreter_types.DType.UNIT, None
-            )
+            res = interpreter_types.Object(interpreter_types.DType.UNIT, None)
         return res
 
     def __str__(self) -> str:
@@ -142,9 +138,7 @@ class Bool(ExternPython):
                 interpreter_types.DType.BOOL, bool(args[0].value)
             )
         except ValueError:
-            res = interpreter_types.Object(
-                interpreter_types.DType.UNIT, None
-            )
+            res = interpreter_types.Object(interpreter_types.DType.UNIT, None)
         return res
 
     def __str__(self) -> str:
@@ -161,9 +155,7 @@ class Set(ExternPython):
             raise ValueError("set takes 1 argument: list")
         table, key, value = args[0].value, args[1], args[2]
         table.fields[key] = value
-        return interpreter_types.Object(
-            interpreter_types.DType.UNIT, None
-        )
+        return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
     def __str__(self) -> str:
         return "Set()"
@@ -191,17 +183,24 @@ class List(ExternPython):
 
     def execute(self, context, args) -> interpreter_types.Object:
         if not args:
-            raise RuntimeError("Internal error: no arguments passed to List() \
-            (should not be detected as function call)")
+            raise RuntimeError(
+                "Internal error: no arguments passed to List() \
+            (should not be detected as function call)"
+            )
         if not all(isinstance(arg, interpreter_types.Object) for arg in args):
             raise RuntimeError("Internal error: not all object wrapped in Object type")
         # if called only with unit type, just return empty list (call with 2 unit types and pop if you want 1 unit type)
-        ret = {} if args[0].type == interpreter_types.DType.UNIT and len(args) == 1 else {
-            interpreter_types.Object(interpreter_types.DType.INT, i): arg for i, arg in enumerate(args)
-        }
+        ret = (
+            {}
+            if args[0].type == interpreter_types.DType.UNIT and len(args) == 1
+            else {
+                interpreter_types.Object(interpreter_types.DType.INT, i): arg
+                for i, arg in enumerate(args)
+            }
+        )
         return interpreter_types.Object(
             interpreter_types.DType.STRUCT_INSTANCE,
-            lcaml_expression.StructInstance(ret)
+            lcaml_expression.StructInstance(ret),
         )
 
     def __str__(self) -> str:
@@ -220,9 +219,7 @@ class Append(ExternPython):
             raise RuntimeError("internal error")
         list_, value = args[0].value, args[1]
         list_.fields[len(list_.fields)] = value
-        return interpreter_types.Object(
-            interpreter_types.DType.UNIT, None
-        )
+        return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
     def __str__(self) -> str:
         return "Append()"
@@ -248,6 +245,33 @@ class Pop(ExternPython):
         return "Append()"
 
 
+class Import(ExternPython):
+    def execute(self, context, args) -> interpreter_types.Object:
+        if len(args) != 1:
+            raise ValueError("append takes 2 arguments: list, index")
+        if not all(isinstance(arg, interpreter_types.Object) for arg in args):
+            raise ValueError("append takes 2 arguments: list, index")
+        if not args[0].type == interpreter_types.DType.STRING:
+            raise ValueError("append takes 2 arguments: list, index")
+        if not all(isinstance(arg, interpreter_types.Object) for arg in args):
+            raise RuntimeError("internal error")
+        filepath = args[0].value
+        if not os.path.exists(filepath):
+            raise ValueError(f"File not found: {filepath}")
+        with open(filepath, "r") as f:
+            code = f.read()
+        file_interpreter = interpreter.Interpreter(code)
+        result = file_interpreter.execute()
+        return (
+            result
+            if result is not None
+            else interpreter_types.Object(interpreter_types.DType.UNIT, None)
+        )
+
+    def __str__(self) -> str:
+        return "Append()"
+
+
 BUILTINS = {
     "print": Print,
     "println": PrintLn,
@@ -264,4 +288,5 @@ BUILTINS = {
     "list": List,
     "append": Append,
     "pop": Pop,
+    "import": Import,
 }

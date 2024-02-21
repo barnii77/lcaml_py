@@ -55,10 +55,15 @@ class Function(AstRelated, Resolvable):
     """
 
     def __init__(
-        self, body, arguments: List[AstIdentifier], bounds: Iterable[AstIdentifier]
+        self,
+        body,
+        arguments: List[AstIdentifier],
+        bounds: Iterable[AstIdentifier],
+        syntax: Syntax = Syntax(),
     ):
         self.body = body
         self.arguments = arguments
+        self._syntax = syntax
         if isinstance(bounds, dict):
             self.bounds: Dict[AstIdentifier, Object] = bounds
         else:
@@ -73,7 +78,10 @@ class Function(AstRelated, Resolvable):
         intersecting_keys = self.bounds.keys() & context.keys()
         for key in intersecting_keys:
             self.bounds[key] = context[key]
-        return Object(DType.FUNCTION, self)
+        ret = Object(DType.FUNCTION, self)
+        this = AstIdentifier(Token(TokenKind.IDENTIFIER, self._syntax._this_keyword))
+        self.bounds[this] = ret
+        return ret
 
     @classmethod
     def from_stream(
@@ -124,7 +132,10 @@ class Function(AstRelated, Resolvable):
         body, symbols_used = lcaml_parser.Ast.from_stream(body_stream, syntax)
         return (
             cls(
-                body, arguments, map(lambda variable: variable.identifier, symbols_used)
+                body,
+                arguments,
+                map(lambda variable: variable.identifier, symbols_used),
+                syntax,
             ),
             remaining_stream,
             symbols_used,
@@ -303,7 +314,9 @@ class StructInstance(AstRelated, Resolvable, Gettable):
         all_symbols_used = set()
         assignments = []
         # expression after : can either end with a } or a , and both cases should be handled
-        _expression_terminating_token = Token(EqualsAny(TokenKind.COMMA, TokenKind.RCURLY), PhantomType())
+        _expression_terminating_token = Token(
+            EqualsAny(TokenKind.COMMA, TokenKind.RCURLY), PhantomType()
+        )
         while stream:
             token = stream.pop(0)
             # FIXME: this does not work for stacked structures (struct inside struct)
@@ -322,7 +335,9 @@ class StructInstance(AstRelated, Resolvable, Gettable):
                 if field is None:
                     raise ValueError("Interal Error or Syntax Error: Field is None")
                 stream.insert(0, token)
-                expression, stream, symbols_used = Expression.from_stream(stream, syntax, terminating_token=_expression_terminating_token)
+                expression, stream, symbols_used = Expression.from_stream(
+                    stream, syntax, terminating_token=_expression_terminating_token
+                )
                 all_symbols_used.update(symbols_used)
                 assignments.append((field, expression))
                 field = None
@@ -335,7 +350,10 @@ class StructInstance(AstRelated, Resolvable, Gettable):
                 else:
                     raise ValueError(f"expected comma or rcurly, got {token}")
                 state = StructInstanceParseState.ExpectFieldOrEnd
-        if state not in (StructInstanceParseState.ExpectCommaOrEnd, StructInstanceParseState.ExpectFieldOrEnd):
+        if state not in (
+            StructInstanceParseState.ExpectCommaOrEnd,
+            StructInstanceParseState.ExpectFieldOrEnd,
+        ):
             raise ValueError("Unexpected end of tokenstream")
         assignments = dict(assignments)
         return cls(assignments), stream, all_symbols_used
@@ -367,7 +385,9 @@ class FieldAccess(AstRelated, Resolvable):
 
     def resolve(self, context: Context) -> Object:
         obj = self.object.resolve(context)
-        if isinstance(obj, (Gettable, Object)):  # Object is fine if wrapped value is gettable
+        if isinstance(
+            obj, (Gettable, Object)
+        ):  # Object is fine if wrapped value is gettable
             return obj.get(self.field)
         else:
             raise TypeError(
@@ -384,7 +404,9 @@ class FunctionCall(AstRelated, Resolvable):
 
     """
 
-    def __init__(self, fuction_resolvable: Resolvable, arguments: List):
+    def __init__(
+        self, fuction_resolvable: Resolvable, arguments: List, syntax: Syntax = Syntax()
+    ):
         """
         Resolved by spawning a new InterpreterVM
 
@@ -394,6 +416,7 @@ class FunctionCall(AstRelated, Resolvable):
         """
         self.function_resolvable = fuction_resolvable
         self.arguments = arguments
+        self._syntax = syntax
 
     def __str__(self):
         return (
@@ -435,7 +458,7 @@ class FunctionCall(AstRelated, Resolvable):
                 # add curried args to bounds
                 bounds = function.bounds.copy()
                 bounds.update(arg_locals)
-                result = Function(function.body, remaining_args, bounds)
+                result = Function(function.body, remaining_args, bounds, self._syntax)
                 return Object(DType.FUNCTION, result)
             else:
                 # all args provided -> execute function
@@ -621,7 +644,7 @@ class Expression(AstRelated, Resolvable):
                 next_thing = first_pass_buffer[0]
                 if type(next_thing) in FUNCTION_CALL_ALLOWED_TYPES:
                     # function call
-                    function_call = FunctionCall(thing, [])
+                    function_call = FunctionCall(thing, [], syntax)
                     while (
                         first_pass_buffer
                         and type(first_pass_buffer[0]) in FUNCTION_CALL_ALLOWED_TYPES

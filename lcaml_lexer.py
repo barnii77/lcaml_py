@@ -27,6 +27,7 @@ class Syntax:
         self.if_keyword = r"if\s"
         self.else_if_keyword = r"else\s+if\s"
         self.else_keyword = r"else\s"
+        self._this_keyword = r"__this"
 
         # identifiers and builtins
         self.identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"

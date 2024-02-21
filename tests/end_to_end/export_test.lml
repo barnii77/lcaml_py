@@ -1,0 +1,8 @@
+let fact = |x| {
+  if (x <= 1) {
+    return 1;
+  };
+  return x * __this (x - 1);
+};
+
+return {factorial: fact};
