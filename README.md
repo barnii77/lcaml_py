@@ -1,7 +1,7 @@
 # Description
 An interpreter written in python for a custom language LCaml.
 LCaml is an incomplete, terribly slow, lua-style functional programming language.
-Note that I did only little prep for this project (know basic stepos of interpreter) and did not read a book or something for this project, I kinda just did what seemed the most obvious to me. Therefore, I might have made some unusual decisions.
+Note that I did only little prep for this project (know basic steps of interpreter) and did not read a book or something for this project, I kinda just did what seemed the most obvious to me. Therefore, I might have made some unusual decisions.
 
 # LCaml language concept
 LCaml is an esoteric interpreted programming language written primarily to troll my programming teacher in school.
