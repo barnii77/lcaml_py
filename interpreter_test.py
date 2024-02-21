@@ -4,16 +4,6 @@ from timeit import timeit
 from interpreter import Interpreter
 
 
-# def python_run():
-#     def factorial(n):
-#         if n <= 1:
-#             return 1
-#         else:
-#             return n * factorial(n - 1)
-
-#     return factorial(5)
-
-
 def run():
     interpreter.vm.variables = {}
     result = interpreter.execute()
