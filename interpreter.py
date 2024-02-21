@@ -24,8 +24,10 @@ class Interpreter:
             LexError
             ParseError
     """
-    def __init__(self, code: str):
-        self.syntax = lcaml_lexer.Syntax()
+    def __init__(self, code: str, syntax=None):
+        if syntax is None:
+            syntax = lcaml_lexer.Syntax()
+        self.syntax = syntax
         self.tokens = lcaml_lexer.Lexer(code, self.syntax)()
         self.ast = lcaml_parser.Parser(self.tokens, self.syntax)()
         self.vm = interpreter_vm.InterpreterVM(self.ast)

@@ -1,6 +1,7 @@
 from operation_kind import OperationKind
 from typing import Any
 
+from resolvable import Resolvable
 from parser_types import AstIdentifier
 
 
@@ -377,7 +378,7 @@ class DType:
     }
 
 
-class Object:
+class Object(Resolvable):
     """
     This class represents an object in the interpreter.
 

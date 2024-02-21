@@ -11,7 +11,7 @@ from interpreter_types import Object, DType
 from parser_types import AstIdentifier
 from interpreter_vm import InterpreterVM
 from operation_kind import OperationKind
-from typing import List, Dict, Optional, Set, Iterable
+from typing import List, Dict, Optional, Set, Iterable, Any
 
 
 TokenStream = List[Token]
@@ -282,9 +282,16 @@ class StructInstanceParseState:
     ExpectCommaOrEnd = 3
 
 
-class StructInstance(AstRelated, Resolvable, Gettable):
+class Table(AstRelated, Resolvable, Gettable):
+    """
+
+    Attributes:
+        type: currently not in use
+        fields: the fields of the struct instance
+
+    """
     def __init__(
-        self, fields: Dict[AstIdentifier, Resolvable], type: Optional[Resolvable] = None
+        self, fields: Dict[Any, Resolvable], type: Optional[Resolvable] = None
     ):
         self.type = type
         self.fields = fields
@@ -803,7 +810,7 @@ class Expression(AstRelated, Resolvable):
                 struct_instance,
                 remaining_stream,
                 symbols_used,
-            ) = StructInstance.from_stream(stream, syntax)
+            ) = Table.from_stream(stream, syntax)
             return cls(struct_instance), remaining_stream, symbols_used
         if terminating_token not in stream:
             raise ValueError(f"Expression must end with a {terminating_token}")

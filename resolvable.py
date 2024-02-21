@@ -1,6 +1,12 @@
 from typing import Dict
-from interpreter_types import Object
 from parser_types import AstIdentifier
+
+
+class Object:
+    """
+    this is a dummy class used for type hints replacing the object class from interpreter_types
+    """
+    pass
 
 
 Context = Dict[AstIdentifier, Object]
