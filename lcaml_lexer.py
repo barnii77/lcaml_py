@@ -39,7 +39,7 @@ class Syntax:
         self.integer = r"-?[0-9]+"
         self._true = r"true"
         self.boolean = r"true|false"
-        self.string_literal = r"\"(.*?)\"", 2
+        self.string_literal = r"\"(.*?)\"", 1
         self.comment = r"--.*\n"
 
         # operators
@@ -103,12 +103,12 @@ class Syntax:
     def get_compiled_patterns(self) -> dict:
         result = {}
         for k, pattern_info in self.patterns():
-            if not isinstance(pattern_info, tuple):
+            if not isinstance(pattern_info, (tuple, list)):
                 if not isinstance(pattern_info, str):
                     raise TypeError(f"Invalid pattern_info type: {type(pattern_info)}")
-                pattern_info = (pattern_info, 1)
+                pattern_info = (pattern_info, 0)
             pattern, group = pattern_info
-            result[k] = re.compile(f"^\\s*({pattern})"), group
+            result[k] = re.compile(f"^\\s*({pattern})"), group + 1
         return result
 
 
