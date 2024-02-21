@@ -24,9 +24,9 @@ class Syntax:
         self.let = r"let\s"
         self.return_keyword = r"return\s"
         self.struct_keyword = r"struct(?![a-zA-Z0-9_])"
-        self.if_keyword = r"if\s"
-        self.else_if_keyword = r"else\s+if\s"
-        self.else_keyword = r"else\s"
+        self.if_keyword = r"if"
+        self.else_if_keyword = r"else\s+if"
+        self.else_keyword = r"else"
         self._this_keyword = r"__this"
 
         # identifiers and builtins
