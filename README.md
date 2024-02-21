@@ -39,7 +39,8 @@ Note that if you provide a list, you have to provide the group. It is only set f
 For an **example**, see tests/end_to_end/custom_syntax.json
 
 # Components of the interpreter
-
-Lexer: CODE -> Tokens
-Parser: Tokens -> AST
-Interpreter: AST -> EXECUTE
+| thing | role |
+|-------|------|
+| Lexer | CODE -> Tokens |
+| Parser | Tokens -> AST |
+| Interpreter | AST -> EXECUTE |
