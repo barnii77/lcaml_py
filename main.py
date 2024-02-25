@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+from lcaml_lexer import Syntax
 from interpreter import Interpreter
 
 
@@ -33,5 +34,7 @@ if __name__ == '__main__':
             syntax = json.load(f)
     with open(file, 'r') as f:
         code = f.read()
+    if syntax is not None:
+        syntax = Syntax(**syntax)
     interpreter = Interpreter(code, syntax)
     interpreter.execute()
