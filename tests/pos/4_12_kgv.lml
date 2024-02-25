@@ -1,0 +1,36 @@
+-- Name Nachname, 1CHIF
+-- 19. 02. 2024
+-- berechnet das kgV zweier Zahlen
+
+let input_int = |prompt| {
+    let input = input prompt;
+    let number = int input;
+    if (number == ()) {
+        let _ = println "ungültige eingabe";
+        return (__this prompt);
+    };
+    return number;
+};
+
+let ggt = |a, b| {
+    if (a < 1 || b < 1) {
+        return ();
+    };
+    let remainder = a % b;
+    if (remainder > 0) {
+        return __this b remainder;
+    };
+    return b;
+};
+
+let kgv = |a, b| {
+  if (a < 1 || b < 1) {
+    return ();
+  };
+  return a * b / ggt a b;
+};
+
+let a = input_int "erste Zahl: ";
+let b = input_int "zweite Zahl: ";
+let x = kgv a b;
+let _ = println "Das kleinste gemeinsame Vielfache von " a " und " b " ist " x;

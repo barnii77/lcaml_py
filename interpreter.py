@@ -1,3 +1,5 @@
+import sys
+from lcaml_utils import LCAML_RECURSION_LIMIT
 import lcaml_lexer
 import lcaml_parser
 import lcaml_builtins
@@ -44,5 +46,13 @@ class Interpreter:
             # construct the value (which is a class)
             name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
             self.vm.variables[name_ast_id] = value()
-        self.vm.execute()
+        recursion_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(LCAML_RECURSION_LIMIT)
+        try:
+            self.vm.execute()
+        except Exception as e:
+            sys.setrecursionlimit(recursion_limit)
+            raise e
+        else:
+            sys.setrecursionlimit(recursion_limit)
         return self.vm.return_value

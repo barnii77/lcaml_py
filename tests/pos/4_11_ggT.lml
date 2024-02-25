@@ -1,3 +1,7 @@
+-- Name Nachname, 1CHIF
+-- 19. 02. 2024
+-- berechne ggT von zwei Zahlen
+
 let input_int = |prompt| {
     let input = input prompt;
     let number = int input;

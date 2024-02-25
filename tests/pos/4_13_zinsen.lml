@@ -1,0 +1,36 @@
+-- Name Nachname, 1CHIF
+-- 19. 02. 2024
+-- berechnet den Endbetrag eines Geldbetrages mit Zinsen und periodischer Einzahlung
+
+let input_int = |prompt| {
+    let input = input prompt;
+    let number = int input;
+    if (number == ()) {
+        let _ = println "ungültige eingabe";
+        return (input_int prompt);
+    };
+    return number;
+};
+
+let _f = |money, rate, interest_rate, years| {
+  if (years <= 0) {
+    return money;
+  };
+  return __this (money * (1 + interest_rate) + rate) rate interest_rate (years - 1);
+};
+
+let round_to_2 = |x| {
+  let x = x * 100;
+  let x_int = int x;
+  if (x - x_int >= 0.5) {
+    return (x_int + 1) / 100;
+  };
+  return x_int / 100;
+};
+let f = _f 0;
+
+let rate = input_int "Geldbetrag (Rate): ";
+let interest_rate = input_int "Zinssatz (in %): " / 100;
+let years = input_int "Jahre: ";
+let x = f rate interest_rate years;
+let _ = println "Endbetrag: " (round_to_2 x);

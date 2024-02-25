@@ -38,7 +38,12 @@ if args.output.endswith(".pdf"):
     args.output = args.output[:-4]
 
 if not args.fuse and not args.deps:  # interpret as test run
-    os.chdir("/home/david/projects/lcaml/lcaml_py/fuse/tests/")
+    home = os.getenv("HOME")
+    if home is None:
+        raise ValueError("HOME environment variable not set or not accessible through os.getenv('HOME')")
+    if home.endswith("/"):
+        home = home[:-1]
+    os.chdir(f"{home}/projects/lcaml/lcaml_py/fuse/tests/")
     args.fuse = True
     args.output = "fused.py"
 

@@ -1,4 +1,5 @@
 import json
+import time
 import os
 import interpreter
 import lcaml_expression
@@ -277,6 +278,19 @@ class Import(ExternPython):
         return "Import()"
 
 
+class Sleep(ExternPython):
+    def execute(self, context, args) -> interpreter_types.Object:
+        if len(args) != 1:
+            raise ValueError("sleep takes 1 argument: seconds")
+        if not all(isinstance(arg, interpreter_types.Object) for arg in args):
+            raise RuntimeError("internal error")
+        if not args[0].type in (interpreter_types.DType.FLOAT, interpreter_types.DType.INT):
+            raise ValueError("import takes 1 argument: seconds (float)")
+        seconds = args[0].value
+        time.sleep(seconds)
+        return interpreter_types.Object(interpreter_types.DType.UNIT, None)
+
+
 BUILTINS = {
     "print": Print,
     "println": PrintLn,
@@ -294,4 +308,5 @@ BUILTINS = {
     "append": Append,
     "pop": Pop,
     "import": Import,
+    "sleep": Sleep,
 }
