@@ -1,0 +1,4 @@
+let t = struct {x, y, z};
+let a = {x: 1, y: 2, z: 3};
+let _ = println "should be true: ";
+return isinstance a t;
