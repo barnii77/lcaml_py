@@ -326,7 +326,7 @@ class Table(AstRelated, Resolvable, Gettable):
         )
         while stream:
             token = stream.pop(0)
-            # FIXME: this does not work for stacked structures (struct inside struct)
+            # (or does it?) FIXME: this does not work for stacked structures (struct inside struct)
             if token.type == TokenKind.RCURLY:
                 break
             if state == TableParseState.ExpectFieldOrEnd:
