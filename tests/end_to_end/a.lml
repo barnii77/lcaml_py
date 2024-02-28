@@ -1,1 +1,8 @@
+-- hello world
+let _ = 5.5;
+let u = ();
+let _ = true;
+let _ = false;
 let _ = println "hello world";
+let f = |a| {return a + 1;};
+let xyz = 5;
