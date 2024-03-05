@@ -15,7 +15,7 @@ class ParseState:
     Enum for parser state
     """
 
-    ExpectStatementOrCommentOrEnd = 0
+    ExpectStatementOrEnd = 0
     ExpectIdentfier = 1
     ExpectEquals = 2
     ExpectExpression = 3
@@ -83,16 +83,14 @@ class Ast(AstRelated):
         """
         stream = [token for token in stream if token.type != TokenKind.COMMENT]
         statements = []
-        state = ParseState.ExpectStatementOrCommentOrEnd
+        state = ParseState.ExpectStatementOrEnd
         identifier = None
         all_symbols_used: Set[lcaml_expression.Variable] = set()
         while stream:
             token = stream.pop(0)
 
-            if state == ParseState.ExpectStatementOrCommentOrEnd:
-                if token.type == TokenKind.COMMENT:
-                    continue
-                elif token.type == TokenKind.LET:
+            if state == ParseState.ExpectStatementOrEnd:
+                if token.type == TokenKind.LET:
                     state = ParseState.ExpectIdentfier
                     identifier = None
                 elif token.type == TokenKind.RETURN:
@@ -151,7 +149,7 @@ class Ast(AstRelated):
 
             elif state == ParseState.ExpectSemicolon:
                 if token.type == TokenKind.SEMICOLON:
-                    state = ParseState.ExpectStatementOrCommentOrEnd
+                    state = ParseState.ExpectStatementOrEnd
                 else:
                     raise ParseError("Expected semicolon")
 
@@ -159,7 +157,7 @@ class Ast(AstRelated):
                 raise ParseError(
                     "Invalid state reached, please report bug to lcaml maintainers"
                 )
-        if state != ParseState.ExpectStatementOrCommentOrEnd:
+        if state != ParseState.ExpectStatementOrEnd:
             raise ParseError("Unexpected end of file")
         return cls(statements), all_symbols_used
 
