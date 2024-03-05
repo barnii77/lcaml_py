@@ -97,6 +97,16 @@ class DType:
                 FLOAT: FLOAT,
             },
         },
+        OperationKind.POW: {
+            INT: {
+                INT: FLOAT,
+                FLOAT: FLOAT,
+            },
+            FLOAT: {
+                INT: FLOAT,
+                FLOAT: FLOAT,
+            },
+        },
         OperationKind.MOD: {
             INT: {
                 INT: INT,
@@ -410,6 +420,21 @@ class Object(Resolvable):
 
     def get(self, ident: AstIdentifier):
         return self.value.get(ident)
+
+    def pow(self, other):
+        if not isinstance(other, Object):
+            raise TypeError(f"Expected type Object, got {type(other)}")
+
+        return_type = (
+            DType._operation_result_rules.get(OperationKind.POW, {})
+            .get(self.type, {})
+            .get(other.type)
+        )
+        if return_type is None:
+            raise TypeError(
+                f"Unsupported operation between {self.type} and {other.type}"
+            )
+        return Object(return_type, self.value ** other.value)
 
     def add(self, other):
         if not isinstance(other, Object):

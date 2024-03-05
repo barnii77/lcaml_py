@@ -21,6 +21,7 @@ Context = Dict[AstIdentifier, Object]
 SYMBOL_TO_OPKIND = {
     "+": OperationKind.ADD,
     "-": OperationKind.SUB,
+    "**": OperationKind.POW,
     "*": OperationKind.MUL,
     "/": OperationKind.DIV,
     "%": OperationKind.MOD,
@@ -184,6 +185,8 @@ class Operation(AstRelated, Resolvable):
             return left.mul(right)
         elif self.operation == OperationKind.DIV:
             return left.div(right)
+        elif self.operation == OperationKind.POW:
+            return left.pow(right)
         elif self.operation == OperationKind.MOD:
             return left.mod(right)
         elif self.operation == OperationKind.NOT:
@@ -586,11 +589,12 @@ class Expression(AstRelated, Resolvable):
             (3.x) Fill out operations with their args:
                 3.1 . (field access)
                 3.2. ! ~
-                3.3. * / % & |
-                3.4. + -
-                3.5 | &
-                3.6. == != < > <= >=
-                3.7. || &&
+                3.3 **
+                3.4. * / % & |
+                3.5. + -
+                3.6 | &
+                3.7. == != < > <= >=
+                3.8. || &&
 
         Args:
             stream: stream (only of Expression) to build from
@@ -714,6 +718,9 @@ class Expression(AstRelated, Resolvable):
 
         # all the other passes (binary) are kind of the same
         sorted_pass_operations = (
+            (
+                OperationKind.POW,
+            ),
             (
                 OperationKind.MUL,
                 OperationKind.DIV,

@@ -29,11 +29,7 @@ class Syntax:
         self.else_keyword = r"else"
         self._this_keyword = r"__this"
 
-        # identifiers and builtins
-        self.identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
-        self.function_args = (
-            f"\\|\\s*({self.identifier}\\s*,\\s*)*{self.identifier}\\s*,?\\s*\\|"
-        )
+        # types
         self.unit_type = r"\(\)"
         self.floating_point = r"[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
         self.integer = r"-?[0-9]+"
@@ -42,10 +38,17 @@ class Syntax:
         self.string_literal = r"\"(.*?)\"", 1
         self.comment = r"--.*\n"
 
+        # identifiers and builtins
+        self.identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
+        self.function_args = (
+            f"\\|\\s*({self.identifier}\\s*,\\s*)*{self.identifier}\\s*,?\\s*\\|"
+        )
+
         # operators
         operators = (
             "!",
             "~",
+            "**",
             "*",
             "/",
             "%",
@@ -171,7 +174,7 @@ if __name__ == "__main__":
     let f = |x, y| {let z = x + y;};
     let x = 10; -- x y z
     let y = 20;
-    let z = x + y + zahl;
+    let z = x + y ** zahl;
     """
     syntax = Syntax()
     lexer = Lexer(code, syntax)

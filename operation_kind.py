@@ -16,5 +16,6 @@ class OperationKind:
     AND = 14
     BITOR = 15
     BITAND = 16
+    POW = 17
 
     _unary = [NOT, FLIP]

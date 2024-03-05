@@ -71,6 +71,7 @@ class Ast(AstRelated):
         """
 
         Args:
+            syntax: Syntax to be used
             stream: TokenStream to parse
 
         Returns:
@@ -80,6 +81,7 @@ class Ast(AstRelated):
             ParseError: Parser could not parse the code
 
         """
+        stream = [token for token in stream if token.type != TokenKind.COMMENT]
         statements = []
         state = ParseState.ExpectStatementOrCommentOrEnd
         identifier = None
