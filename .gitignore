@@ -1,2 +1,3 @@
 ./setup.cfg
 ./pyrightconfig.json
+./__pycache__/
