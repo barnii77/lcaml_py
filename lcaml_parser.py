@@ -94,9 +94,11 @@ class Ast(AstRelated):
                     state = ParseState.ExpectIdentfier
                     identifier = None
                 elif token.type == TokenKind.RETURN:
-                    expression, stream, symbols_used = lcaml_expression.Expression.from_stream(
-                        stream, syntax
-                    )
+                    (
+                        expression,
+                        stream,
+                        symbols_used,
+                    ) = lcaml_expression.Expression.from_stream(stream, syntax)
                     all_symbols_used.update(symbols_used)
                     return_statement = parser_types.AstReturn(expression)
                     statement = AstStatement(
@@ -105,9 +107,11 @@ class Ast(AstRelated):
                     statements.append(statement)
                     state = ParseState.ExpectSemicolon
                 elif token.type == TokenKind.IF:
-                    control_flow, stream, symbols_used = parser_types.AstControlFlow.from_stream(
-                        stream, syntax
-                    )
+                    (
+                        control_flow,
+                        stream,
+                        symbols_used,
+                    ) = parser_types.AstControlFlow.from_stream(stream, syntax)
                     all_symbols_used.update(symbols_used)
                     statement = AstStatement(
                         parser_types.AstStatementType.CONTROL_FLOW, control_flow
@@ -132,9 +136,11 @@ class Ast(AstRelated):
                     raise ParseError("Expected equals sign")
 
             elif state == ParseState.ExpectExpression:
-                expression, stream, symbols_used = lcaml_expression.Expression.from_stream(
-                    [token] + stream, syntax
-                )
+                (
+                    expression,
+                    stream,
+                    symbols_used,
+                ) = lcaml_expression.Expression.from_stream([token] + stream, syntax)
                 all_symbols_used.update(symbols_used)
                 if identifier is None:
                     raise ParseError(
@@ -181,11 +187,21 @@ class Parser:
 
 
 if __name__ == "__main__":
+    # code = """
+    # let x = 10; -- x y z
+    # let y = 20;
+    # let z = x + y;
+    # """
     code = """
-    let x = 10; -- x y z
-    let y = 20;
-    let z = x + y;
-    """
+let fact = |x| {
+  if (x <= 1) {
+    return 1;
+  };
+  return x * __this (x - 1);
+};
+
+return {factorial: fact};
+"""
     from lcaml_lexer import Lexer, Syntax
 
     syntax = Syntax()
