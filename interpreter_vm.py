@@ -1,5 +1,5 @@
 from typing import Optional
-from parser_types import AstIdentifier, AstStatementType, AstAssignment, AstReturn
+import parser_types
 from interpreter_types import Object
 
 
@@ -14,7 +14,7 @@ class InterpreterVM:
 
     """
 
-    def __init__(self, ast, variables: dict[AstIdentifier, Object] = None):
+    def __init__(self, ast, variables: dict['parser_types.AstIdentifier', 'Object'] = None):
         if variables is None:
             variables = {}
         self.variables = variables
@@ -23,24 +23,24 @@ class InterpreterVM:
 
     def execute(self):
         for statement in self.ast.statements:
-            if statement.type == AstStatementType.ASSIGNMENT:
+            if statement.type == parser_types.AstStatementType.ASSIGNMENT:
                 assert (
-                    type(statement.value) == AstAssignment
-                ), "Bug: statement.value is not AstAssignment"
+                    type(statement.value) == parser_types.AstAssignment
+                ), "Bug: statement.value is not parser_types.AstAssignment"
                 assignment = statement.value
-                identifier: AstIdentifier = assignment.identifier
+                identifier: parser_types.AstIdentifier = assignment.identifier
                 value: Object = assignment.value.resolve(self.variables)
                 self.variables[identifier] = value
 
-            elif statement.type == AstStatementType.RETURN:
+            elif statement.type == parser_types.AstStatementType.RETURN:
                 assert (
-                    type(statement.value) == AstReturn
-                ), "Bug: statement.value is not AstReturn"
+                    type(statement.value) == parser_types.AstReturn
+                ), "Bug: statement.value is not parser_types.AstReturn"
                 expression = statement.value.value
                 self.return_value = expression.resolve(self.variables)
                 return
 
-            elif statement.type == AstStatementType.CONTROL_FLOW:
+            elif statement.type == parser_types.AstStatementType.CONTROL_FLOW:
                 control_flow = statement.value
                 for branch in control_flow.branches:
                     if branch.condition.resolve(self.variables):

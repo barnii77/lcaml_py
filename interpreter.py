@@ -8,6 +8,18 @@ from parser_types import AstIdentifier
 from token_type import Token, TokenKind
 
 
+def lcamlify_vars(variables: dict[str, object]) -> dict[AstIdentifier, object]:
+    result = {}
+    for name, value in variables.items():
+        name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
+        result[name_ast_id] = value
+    return result
+
+
+def get_builtins():
+    return lcamlify_vars({k: v() for k, v in lcaml_builtins.BUILTINS.items()})
+
+
 class Interpreter:
     """
 
@@ -34,18 +46,17 @@ class Interpreter:
         self.ast = lcaml_parser.Parser(self.tokens, self.syntax)()
         self.vm = interpreter_vm.InterpreterVM(self.ast)
 
-    def execute(self):
+    def execute(self, variables: dict = None):
         """
 
         Returns:
             Any: The return value of the code
 
         """
-        self.vm.variables = {}
-        for name, value in lcaml_builtins.BUILTINS.items():
-            # construct the value (which is a class)
-            name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
-            self.vm.variables[name_ast_id] = value()
+        if variables is None:
+            self.vm.variables = get_builtins()
+        else:
+            self.vm.variables = variables
         recursion_limit = sys.getrecursionlimit()
         sys.setrecursionlimit(LCAML_RECURSION_LIMIT)
         try:

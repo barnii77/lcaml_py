@@ -1,4 +1,6 @@
 import lcaml_parser
+import parser_types
+import interpreter_vm as interpreter_vm_mod
 import extern_python
 
 from resolvable import Resolvable
@@ -8,14 +10,12 @@ from lcaml_lexer import Syntax
 from token_type import Token, TokenKind
 from lcaml_utils import PhantomType, split_at_context_end, EqualsAny
 from interpreter_types import Object, DType
-from parser_types import AstIdentifier
-from interpreter_vm import InterpreterVM
 from operation_kind import OperationKind
 from typing import List, Dict, Optional, Set, Iterable, Any
 
 
 TokenStream = List[Token]
-Context = Dict[AstIdentifier, Object]
+Context = Dict['parser_types.AstIdentifier', Object]
 
 
 SYMBOL_TO_OPKIND = {
@@ -58,17 +58,17 @@ class Function(AstRelated, Resolvable):
     def __init__(
         self,
         body,
-        arguments: List[AstIdentifier],
-        bounds: Iterable[AstIdentifier],
+        arguments: List['parser_types.AstIdentifier'],
+        bounds: Iterable['parser_types.AstIdentifier'],
         syntax: Syntax = Syntax(),
     ):
         self.body = body
         self.arguments = arguments
         self._syntax = syntax
         if isinstance(bounds, dict):
-            self.bounds: Dict[AstIdentifier, Object] = bounds
+            self.bounds: Dict['parser_types.AstIdentifier', Object] = bounds
         else:
-            self.bounds: Dict[AstIdentifier, Object] = {ident: None for ident in bounds}
+            self.bounds: Dict['parser_types.AstIdentifier', Object] = {ident: None for ident in bounds}
 
     def __str__(self):
         return "Function(" + str(self.body) + ", " + str(self.arguments) + ")"
@@ -80,7 +80,7 @@ class Function(AstRelated, Resolvable):
         for key in intersecting_keys:
             self.bounds[key] = context[key]
         ret = Object(DType.FUNCTION, self)
-        this = AstIdentifier(Token(TokenKind.IDENTIFIER, self._syntax._this_keyword))
+        this = parser_types.AstIdentifier(Token(TokenKind.IDENTIFIER, self._syntax._this_keyword))
         self.bounds[this] = ret
         return ret
 
@@ -115,7 +115,7 @@ class Function(AstRelated, Resolvable):
         identifiers_raw = map(str.strip, syntax._extract_fn_args(first_token.value))
         arguments = list(
             map(
-                lambda raw_id: AstIdentifier(Token(TokenKind.IDENTIFIER, raw_id)),
+                lambda raw_id: parser_types.AstIdentifier(Token(TokenKind.IDENTIFIER, raw_id)),
                 identifiers_raw,
             )
         )
@@ -230,7 +230,7 @@ class StructType(AstRelated, Resolvable):
 
     """
 
-    def __init__(self, fields: List[AstIdentifier]):
+    def __init__(self, fields: List['parser_types.AstIdentifier']):
         self.fields = fields
 
     def __str__(self):
@@ -249,12 +249,12 @@ class StructType(AstRelated, Resolvable):
             raise ValueError(f"expected lcurly, got {token}")
 
         state = StructTypeParseState.ExpectFieldOrEnd
-        fields: List[AstIdentifier] = []
+        fields: List['parser_types.AstIdentifier'] = []
         while stream:
             token = stream.pop(0)
             if state == StructTypeParseState.ExpectFieldOrEnd:
                 if token.type == TokenKind.IDENTIFIER:
-                    field = AstIdentifier(token)
+                    field = parser_types.AstIdentifier(token)
                     fields.append(field)
                     state = StructTypeParseState.ExpectCommaOrEnd
                 elif token.type == TokenKind.RCURLY:
@@ -307,9 +307,9 @@ class Table(AstRelated, Resolvable, Gettable):
             self.fields[field] = expression.resolve(context)
         return Object(DType.TABLE, self)
 
-    def get(self, ident: AstIdentifier) -> Object:
-        if not isinstance(ident, AstIdentifier):
-            raise TypeError(f"Expected AstIdentifier, got {ident}")
+    def get(self, ident: 'parser_types.AstIdentifier') -> Object:
+        if not isinstance(ident, parser_types.AstIdentifier):
+            raise TypeError(f"Expected parser_types.AstIdentifier, got {ident}")
         if ident not in self.fields:
             raise ValueError(f"Field {ident} not found in struct {self}")
         return self.fields[ident]
@@ -335,7 +335,7 @@ class Table(AstRelated, Resolvable, Gettable):
             if state == TableParseState.ExpectFieldOrEnd:
                 if token.type != TokenKind.IDENTIFIER:
                     raise ValueError(f"expected colon, got {token}")
-                field = AstIdentifier(token)
+                field = parser_types.AstIdentifier(token)
                 state = TableParseState.ExpectColon
             elif state == TableParseState.ExpectColon:
                 if token.type != TokenKind.COLON:
@@ -379,7 +379,7 @@ class FieldAccess(AstRelated, Resolvable):
 
     """
 
-    def __init__(self, object: Resolvable, field: AstIdentifier):
+    def __init__(self, object: 'Resolvable', field: 'parser_types.AstIdentifier'):
         """
 
         Args:
@@ -418,7 +418,7 @@ class FunctionCall(AstRelated, Resolvable):
         self, fuction_resolvable: Resolvable, arguments: List, syntax: Syntax = Syntax()
     ):
         """
-        Resolved by spawning a new InterpreterVM
+        Resolved by spawning a new interpreter_vm_mod.InterpreterVM
 
         Args:
             function_container: Object[Function]
@@ -439,7 +439,7 @@ class FunctionCall(AstRelated, Resolvable):
 
     def resolve(self, context: Context) -> Optional[Object]:
         """
-        Resolves the value of the function call by spawning a new InterpreterVM
+        Resolves the value of the function call by spawning a new interpreter_vm_mod.InterpreterVM
 
         Args:
             context: context to resolve function in
@@ -483,19 +483,24 @@ class FunctionCall(AstRelated, Resolvable):
                 # overwrite variables from outer context with local args
                 local_context.update(arg_locals)
                 # spawn new interpreter vm
-                interpreter_vm = InterpreterVM(function.body, local_context)
+                interpreter_vm = interpreter_vm_mod.InterpreterVM(function.body, local_context)
                 interpreter_vm.execute()
                 return interpreter_vm.return_value
 
         elif isinstance(function, extern_python.ExternPython):
             return function.execute(context, resolved_args)
 
+        elif hasattr(function, "execute"):
+            print("Warning: unregistered object type executed (function not registered as ExternPython, but has necessary API). "
+                  "Please report to developer.")
+            return function.__class__.execute(function, context, resolved_args)
+
         else:
             raise TypeError("Cannot call non-function")
 
 
 class Variable(AstRelated, Resolvable):
-    def __init__(self, identifier: AstIdentifier):
+    def __init__(self, identifier: 'parser_types.AstIdentifier'):
         self.identifier = identifier
 
     def __str__(self):
@@ -623,7 +628,7 @@ class Expression(AstRelated, Resolvable):
             elif token.type in TokenKind._builtin_types:
                 first_pass_buffer.append(Constant(token, syntax))
             elif token.type == TokenKind.IDENTIFIER:
-                first_pass_buffer.append(Variable(AstIdentifier(token)))
+                first_pass_buffer.append(Variable(parser_types.AstIdentifier(token)))
             elif token.type == TokenKind.LPAREN:
                 expression, stream, symbols_used = cls.from_stream(
                     stream, syntax, Token(TokenKind.RPAREN, PhantomType())

@@ -42,7 +42,7 @@ class AstStatement(AstRelated):
     def __init__(
         self,
         type: int,
-        value: Union[parser_types.AstAssignment, parser_types.AstReturn],
+        value: Union['parser_types.AstAssignment', 'parser_types.AstReturn'],
     ):
         self.type = type
         self.value = value
