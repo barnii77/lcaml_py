@@ -1,6 +1,7 @@
 # NOTE: Cannot change to integer because these values are used
 # NOTE: to extract the token type from the syntax object
 class TokenKind:
+    _PHANTOM = "<phantom>"
     LET = "let"
     RETURN = "return_keyword"  # NOTE: because return is a python keyword, this naming is required
     STRUCT = "struct_keyword"

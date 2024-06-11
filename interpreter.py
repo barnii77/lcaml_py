@@ -17,7 +17,7 @@ def lcamlify_vars(variables: dict[str, object]) -> dict[AstIdentifier, object]:
 
 
 def get_builtins():
-    return lcamlify_vars({k: v() for k, v in lcaml_builtins.BUILTINS.items()})
+    return lcamlify_vars(lcaml_builtins.BUILTINS)
 
 
 class Interpreter:

@@ -1,0 +1,2 @@
+let x = false;
+let y = !!x;  // NOTE: does not work, error

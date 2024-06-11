@@ -14,8 +14,9 @@ class ExternPython(Resolvable):
     def resolve(self, context: Context) -> 'interpreter_types.Object':
         return interpreter_types.Object(interpreter_types.DType.EXTERN_PYTHON, self)
 
+    @staticmethod
     def execute(
-            self, context: Context, args: List['interpreter_types.Object']
+            context: Context, args: List['interpreter_types.Object']
     ) -> 'interpreter_types.Object':
         """
         This function is called when the built-in function is called.
@@ -29,4 +30,4 @@ class ExternPython(Resolvable):
         raise NotImplementedError()
 
     def __str__(self) -> str:
-        return "Builtin()"
+        return "ExternPython"

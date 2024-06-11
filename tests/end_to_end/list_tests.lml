@@ -1,6 +1,9 @@
-let l = list ();
+let proper_list = [1, 2, 3, ("hello " + "world")];
+let l = proper_list;
 let _ = append l 1;
 let _ = append l 2;
 let _ = pop l;
 let _ = append l 3;
-return l;
+let _ = println l;
+let _ = println "should be true" (proper_list == l);
+return proper_list;

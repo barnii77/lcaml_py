@@ -2,6 +2,7 @@ from operation_kind import OperationKind
 from typing import Any
 
 from resolvable import Resolvable
+
 # from parser_types import AstIdentifier
 
 
@@ -20,31 +21,26 @@ class DType:
     TABLE = 7
     EXTERN_PYTHON = 8
     PY_OBJ = 9
+    LIST = 10
 
     @staticmethod
     def name(code: int):
-        if code == DType.INT:
-            return "Int"
-        elif code == DType.FLOAT:
-            return "Float"
-        elif code == DType.STRING:
-            return "String"
-        elif code == DType.BOOL:
-            return "Bool"
-        elif code == DType.UNIT:
-            return "UnitType"
-        elif code == DType.FUNCTION:
-            return "Function"
-        elif code == DType.STRUCT_TYPE:
-            return "StructType"
-        elif code == DType.TABLE:
-            return "Table"
-        elif code == DType.EXTERN_PYTHON:
-            return "ExternPython"
-        elif code == DType.PY_OBJ:
-            return "PyObj"
-        else:
-            raise ValueError(f"Unknown type {code}")
+        name_map = {
+            DType.INT: "Int",
+            DType.FLOAT: "Float",
+            DType.STRING: "String",
+            DType.BOOL: "Bool",
+            DType.UNIT: "UnitType",
+            DType.FUNCTION: "Function",
+            DType.STRUCT_TYPE: "StructType",
+            DType.TABLE: "Table",
+            DType.EXTERN_PYTHON: "ExternPython",
+            DType.PY_OBJ: "PyObj",
+            DType.LIST: "List",
+        }
+        if code in name_map:
+            return name_map[code]
+        raise ValueError(f"Unknown type {code}")
 
     def __repr__(self):
         return str(self)
@@ -65,6 +61,9 @@ class DType:
             STRING: {
                 STRING: STRING,
             },
+            LIST: {
+                LIST: LIST,
+            },
         },
         OperationKind.SUB: {
             INT: {
@@ -81,6 +80,7 @@ class DType:
                 INT: INT,
                 FLOAT: FLOAT,
                 STRING: STRING,
+                LIST: LIST,
             },
             FLOAT: {
                 INT: FLOAT,
@@ -88,6 +88,9 @@ class DType:
             },
             STRING: {
                 INT: STRING,
+            },
+            LIST: {
+                INT: LIST,
             },
         },
         OperationKind.DIV: {
@@ -131,6 +134,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             FLOAT: {
                 INT: BOOL,
@@ -142,6 +147,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             STRING: {
                 INT: BOOL,
@@ -153,6 +160,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             BOOL: {
                 INT: BOOL,
@@ -164,6 +173,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             FUNCTION: {
                 INT: BOOL,
@@ -175,6 +186,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             STRUCT_TYPE: {
                 INT: BOOL,
@@ -186,6 +199,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             TABLE: {
                 INT: BOOL,
@@ -197,6 +212,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             UNIT: {
                 INT: BOOL,
@@ -208,6 +225,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             EXTERN_PYTHON: {
                 INT: BOOL,
@@ -219,6 +238,34 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
+            },
+            PY_OBJ: {
+                INT: BOOL,
+                FLOAT: BOOL,
+                STRING: BOOL,
+                BOOL: BOOL,
+                FUNCTION: BOOL,
+                STRUCT_TYPE: BOOL,
+                TABLE: BOOL,
+                UNIT: BOOL,
+                EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
+            },
+            LIST: {
+                INT: BOOL,
+                FLOAT: BOOL,
+                STRING: BOOL,
+                BOOL: BOOL,
+                FUNCTION: BOOL,
+                STRUCT_TYPE: BOOL,
+                TABLE: BOOL,
+                UNIT: BOOL,
+                EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
         },
         OperationKind.NEQ: {
@@ -232,6 +279,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             FLOAT: {
                 INT: BOOL,
@@ -243,6 +292,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             STRING: {
                 INT: BOOL,
@@ -254,6 +305,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             BOOL: {
                 INT: BOOL,
@@ -265,6 +318,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             FUNCTION: {
                 INT: BOOL,
@@ -276,6 +331,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             STRUCT_TYPE: {
                 INT: BOOL,
@@ -287,6 +344,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             TABLE: {
                 INT: BOOL,
@@ -298,6 +357,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             UNIT: {
                 INT: BOOL,
@@ -309,6 +370,8 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
             EXTERN_PYTHON: {
                 INT: BOOL,
@@ -320,6 +383,34 @@ class DType:
                 TABLE: BOOL,
                 UNIT: BOOL,
                 EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
+            },
+            PY_OBJ: {
+                INT: BOOL,
+                FLOAT: BOOL,
+                STRING: BOOL,
+                BOOL: BOOL,
+                FUNCTION: BOOL,
+                STRUCT_TYPE: BOOL,
+                TABLE: BOOL,
+                UNIT: BOOL,
+                EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
+            },
+            LIST: {
+                INT: BOOL,
+                FLOAT: BOOL,
+                STRING: BOOL,
+                BOOL: BOOL,
+                FUNCTION: BOOL,
+                STRUCT_TYPE: BOOL,
+                TABLE: BOOL,
+                UNIT: BOOL,
+                EXTERN_PYTHON: BOOL,
+                PY_OBJ: BOOL,
+                LIST: BOOL,
             },
         },
         OperationKind.LT: {
@@ -401,6 +492,8 @@ class Object(Resolvable):
     """
 
     def __init__(self, type: int, value: Any):
+        if isinstance(value, Object):
+            value = value.value
         self.type = type
         self.value = value
 
@@ -421,7 +514,7 @@ class Object(Resolvable):
     def __bool__(self):
         return bool(self.value)
 
-    def get(self, ident: 'AstIdentifier'):
+    def get(self, ident: "AstIdentifier"):
         return self.value.get(ident)
 
     def pow(self, other):
@@ -437,7 +530,7 @@ class Object(Resolvable):
             raise TypeError(
                 f"Unsupported operation between {self.type} and {other.type}"
             )
-        return Object(return_type, self.value ** other.value)
+        return Object(return_type, self.value**other.value)
 
     def add(self, other):
         if not isinstance(other, Object):

@@ -15,7 +15,7 @@ from typing import List, Dict, Optional, Set, Iterable, Any
 
 
 TokenStream = List[Token]
-Context = Dict['parser_types.AstIdentifier', Object]
+Context = Dict["parser_types.AstIdentifier", Object]
 
 
 SYMBOL_TO_OPKIND = {
@@ -58,17 +58,19 @@ class Function(AstRelated, Resolvable):
     def __init__(
         self,
         body,
-        arguments: List['parser_types.AstIdentifier'],
-        bounds: Iterable['parser_types.AstIdentifier'],
+        arguments: List["parser_types.AstIdentifier"],
+        bounds: Iterable["parser_types.AstIdentifier"],
         syntax: Syntax = Syntax(),
     ):
         self.body = body
         self.arguments = arguments
         self._syntax = syntax
         if isinstance(bounds, dict):
-            self.bounds: Dict['parser_types.AstIdentifier', Object] = bounds
+            self.bounds: Dict["parser_types.AstIdentifier", Object] = bounds
         else:
-            self.bounds: Dict['parser_types.AstIdentifier', Object] = {ident: None for ident in bounds}
+            self.bounds: Dict["parser_types.AstIdentifier", Object] = {
+                ident: None for ident in bounds
+            }
 
     def __str__(self):
         return "Function(" + str(self.body) + ", " + str(self.arguments) + ")"
@@ -80,7 +82,9 @@ class Function(AstRelated, Resolvable):
         for key in intersecting_keys:
             self.bounds[key] = context[key]
         ret = Object(DType.FUNCTION, self)
-        this = parser_types.AstIdentifier(Token(TokenKind.IDENTIFIER, self._syntax._this_keyword))
+        this = parser_types.AstIdentifier(
+            Token(TokenKind.IDENTIFIER, self._syntax._this_keyword)
+        )
         self.bounds[this] = ret
         return ret
 
@@ -115,7 +119,9 @@ class Function(AstRelated, Resolvable):
         identifiers_raw = map(str.strip, syntax._extract_fn_args(first_token.value))
         arguments = list(
             map(
-                lambda raw_id: parser_types.AstIdentifier(Token(TokenKind.IDENTIFIER, raw_id)),
+                lambda raw_id: parser_types.AstIdentifier(
+                    Token(TokenKind.IDENTIFIER, raw_id)
+                ),
                 identifiers_raw,
             )
         )
@@ -230,7 +236,7 @@ class StructType(AstRelated, Resolvable):
 
     """
 
-    def __init__(self, fields: List['parser_types.AstIdentifier']):
+    def __init__(self, fields: List["parser_types.AstIdentifier"]):
         self.fields = fields
 
     def __str__(self):
@@ -249,7 +255,7 @@ class StructType(AstRelated, Resolvable):
             raise ValueError(f"expected lcurly, got {token}")
 
         state = StructTypeParseState.ExpectFieldOrEnd
-        fields: List['parser_types.AstIdentifier'] = []
+        fields: List["parser_types.AstIdentifier"] = []
         while stream:
             token = stream.pop(0)
             if state == StructTypeParseState.ExpectFieldOrEnd:
@@ -278,6 +284,67 @@ class StructType(AstRelated, Resolvable):
         return cls(fields), stream, set()
 
 
+class ListParseState:
+    ExpectExpressionOrEnd = 0
+    ExpectCommaOrEnd = 1
+
+
+class LList(AstRelated, Resolvable):
+    """
+
+    Attributes:
+        type: currently not in use
+        fields: the fields of the struct instance
+
+    """
+
+    def __init__(self, values: List[Resolvable], type: Optional[Resolvable] = None):
+        self.type = type
+        self.values = values
+
+    def __str__(self):
+        return f"List({self.values})"
+
+    def resolve(self, context: Context):
+        for i, expression in enumerate(self.values):
+            self.values[i] = expression.resolve(context)
+        return Object(DType.LIST, self)
+
+    @classmethod
+    def from_stream(cls, stream: TokenStream, syntax: Syntax = Syntax()):
+        token = stream.pop(0)
+        if token.type != TokenKind.LSQUARE:
+            raise ValueError(f"expected lsquare, got {token}")
+        state = ListParseState.ExpectExpressionOrEnd
+        all_symbols_used = set()
+        values = []
+        # expression after : can either end with a } or a , and both cases should be handled
+        _expression_terminating_token = Token(
+            EqualsAny(TokenKind.COMMA, TokenKind.RSQUARE), PhantomType()
+        )
+        while stream:
+            token = stream.pop(0)
+            if token.type == TokenKind.RSQUARE:
+                break
+            if state == ListParseState.ExpectExpressionOrEnd:
+                stream.insert(0, token)
+                expression, stream, symbols_used = Expression.from_stream(
+                    stream, syntax, terminating_token=_expression_terminating_token
+                )
+                all_symbols_used.update(symbols_used)
+                values.append(expression)
+                state = ListParseState.ExpectCommaOrEnd
+            elif state == ListParseState.ExpectCommaOrEnd:
+                if token.type == TokenKind.COMMA:
+                    state = ListParseState.ExpectExpressionOrEnd
+                elif token.type == TokenKind.RSQUARE:
+                    break
+                else:
+                    raise ValueError(f"expected comma or rcurly, got {token}")
+                state = ListParseState.ExpectExpressionOrEnd
+        return cls(values), stream, all_symbols_used
+
+
 class TableParseState:
     ExpectFieldOrEnd = 0
     ExpectColon = 1
@@ -293,6 +360,7 @@ class Table(AstRelated, Resolvable, Gettable):
         fields: the fields of the struct instance
 
     """
+
     def __init__(
         self, fields: Dict[Any, Resolvable], type: Optional[Resolvable] = None
     ):
@@ -307,7 +375,7 @@ class Table(AstRelated, Resolvable, Gettable):
             self.fields[field] = expression.resolve(context)
         return Object(DType.TABLE, self)
 
-    def get(self, ident: 'parser_types.AstIdentifier') -> Object:
+    def get(self, ident: "parser_types.AstIdentifier") -> Object:
         if not isinstance(ident, parser_types.AstIdentifier):
             raise TypeError(f"Expected parser_types.AstIdentifier, got {ident}")
         if ident not in self.fields:
@@ -379,7 +447,7 @@ class FieldAccess(AstRelated, Resolvable):
 
     """
 
-    def __init__(self, object: 'Resolvable', field: 'parser_types.AstIdentifier'):
+    def __init__(self, object: "Resolvable", field: "parser_types.AstIdentifier"):
         """
 
         Args:
@@ -483,7 +551,9 @@ class FunctionCall(AstRelated, Resolvable):
                 # overwrite variables from outer context with local args
                 local_context.update(arg_locals)
                 # spawn new interpreter vm
-                interpreter_vm = interpreter_vm_mod.InterpreterVM(function.body, local_context)
+                interpreter_vm = interpreter_vm_mod.InterpreterVM(
+                    function.body, local_context
+                )
                 interpreter_vm.execute()
                 return interpreter_vm.return_value
 
@@ -491,8 +561,10 @@ class FunctionCall(AstRelated, Resolvable):
             return function.execute(context, resolved_args)
 
         elif hasattr(function, "execute"):
-            print("Warning: unregistered object type executed (function not registered as ExternPython, but has necessary API). "
-                  "Please report to developer.")
+            print(
+                "Warning: unregistered object type executed (function not registered as ExternPython, but has necessary API). "
+                "Please report to developer."
+            )
             return function.__class__.execute(function, context, resolved_args)
 
         else:
@@ -500,7 +572,7 @@ class FunctionCall(AstRelated, Resolvable):
 
 
 class Variable(AstRelated, Resolvable):
-    def __init__(self, identifier: 'parser_types.AstIdentifier'):
+    def __init__(self, identifier: "parser_types.AstIdentifier"):
         self.identifier = identifier
 
     def __str__(self):
@@ -723,9 +795,7 @@ class Expression(AstRelated, Resolvable):
 
         # all the other passes (binary) are kind of the same
         sorted_pass_operations = (
-            (
-                OperationKind.POW,
-            ),
+            (OperationKind.POW,),
             (
                 OperationKind.MUL,
                 OperationKind.DIV,
@@ -824,6 +894,13 @@ class Expression(AstRelated, Resolvable):
                 symbols_used,
             ) = Table.from_stream(stream, syntax)
             return cls(table), remaining_stream, symbols_used
+        elif stream[0].type == TokenKind.LSQUARE:
+            (
+                lst,
+                remaining_stream,
+                symbols_used,
+            ) = LList.from_stream(stream, syntax)
+            return cls(lst), remaining_stream, symbols_used
         if terminating_token not in stream:
             raise ValueError(f"Expression must end with a {terminating_token}")
 
@@ -837,3 +914,4 @@ class Expression(AstRelated, Resolvable):
 
         expression, symbols_used = cls._build_from(expression_stream, syntax)
         return expression, remaining_stream, symbols_used
+

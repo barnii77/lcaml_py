@@ -1,10 +1,21 @@
-let i = 0;
-let table = {x: 1, y: 2};
-let _ = set table i 4;
-let i = i + 1;
-let _ = set table i 5;
+-- let i = 0;
+-- let table = {x: 1, y: 2};
+-- let _ = set table i 4;
+-- let i = i + 1;
+-- let _ = set table i 5;
+-- let _ = print "should be 9: ";
+-- let _ = println ((get table 0) + (get table 1));
+-- let _ = print "should be None: ";
+-- let _ = println (get table 2);
+-- return table;
+
+-- do the same thing with lists
+let list = [1, 2];
+let _ = set list 0 4;
+let _ = set list 1 5;
 let _ = print "should be 9: ";
-let _ = println ((get table 0) + (get table 1));
+let _ = println ((get list 0) + (get list 1));
 let _ = print "should be None: ";
-let _ = println (get table 2);
-return table;
+let _ = append list 6;
+let _ = println "should be 6: " (get list 2);
+return list;
