@@ -41,6 +41,8 @@ def lcaml_to_python(lcaml_obj, interpreter_vm=None):
         # Convert LCaml StructType to Python set of field names
         struct_type = lcaml_obj.value
         return {field.name for field in struct_type.fields}
+    elif lcaml_obj.type == DType.PY_OBJ:
+        return lcaml_obj.value
     else:
         raise TypeError("Unsupported LCaml type")
 
@@ -76,7 +78,7 @@ def python_to_lcaml(py_obj):
         fields = [lcaml_expression.AstIdentifier(field) for field in py_obj]
         return Object(DType.STRUCT_TYPE, lcaml_expression.StructType(fields))
     else:
-        raise TypeError("Unsupported Python type")
+        return Object(DType.PY_OBJ, py_obj)
 
 
 def pyffi(func, interpreter_vm=None):
