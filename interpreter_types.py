@@ -19,6 +19,7 @@ class DType:
     STRUCT_TYPE = 6
     TABLE = 7
     EXTERN_PYTHON = 8
+    PY_OBJ = 9
 
     @staticmethod
     def name(code: int):
@@ -40,6 +41,8 @@ class DType:
             return "Table"
         elif code == DType.EXTERN_PYTHON:
             return "ExternPython"
+        elif code == DType.PY_OBJ:
+            return "PyObj"
         else:
             raise ValueError(f"Unknown type {code}")
 
