@@ -58,10 +58,33 @@ def install_package_flat(package_name, package_url, force_reinstall=False):
         install_dir = os.path.join(get_lcaml_modules_dir(), package_name)
         if os.path.exists(install_dir):
             shutil.rmtree(install_dir, ignore_errors=False)
-        print("installing", package_name)
+        print(
+            "\033[38;5;10m",
+            "Installing ",
+            '"\033[31;1m',
+            package_name,
+            '\033[38;5;10m"',
+            "...",
+            "\033[0m",
+            sep="",
+        )
         subprocess.run(
             ["git", "clone", package_url, install_dir], cwd=get_lcaml_modules_dir()
         )
+        if os.path.exists(os.path.join(install_dir, "requirements.txt")):
+            # install python dependencies
+            venv_path = get_lcaml_virtual_env_dir()
+            # if unix-based, source the activate script, else use ./activate
+            venv_activate_path = get_venv_activate_path(venv_path)
+            venv_source_cmd = (
+                "source " if not sys.platform.startswith("win") else ""
+            ) + venv_activate_path
+            requirements_file = os.path.join(install_dir, "requirements.txt")
+            subprocess.run(
+                f"{venv_source_cmd} && python -m pip install -r {requirements_file}",
+                shell=True,
+                executable="/bin/bash" if not sys.platform.startswith("win") else None,
+            )
     if not os.path.exists(os.path.join(install_dir, "module.lml")):
         raise Exception(f"Package {package_name} does not contain a module.lml file.")
     if not os.path.exists(os.path.join(install_dir, "requirements.json")):
