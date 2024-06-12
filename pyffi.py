@@ -114,10 +114,7 @@ def interface(
         class Wrapper(extern_python.ExternPython):
             @staticmethod
             def execute(context, args):
-                py_args = [
-                    _lcaml_to_python(arg, interpreter_vm)
-                    for arg in args
-                ]
+                py_args = [_lcaml_to_python(arg, interpreter_vm) for arg in args]
                 result = func(*py_args)
                 return _python_to_lcaml(result)
 
@@ -157,77 +154,3 @@ def raw(_func=None, name: str = "PyFFI_Raw") -> Callable:
         return Wrapper()
 
     return decorator if _func is None else decorator(_func)
-
-
-def _test():
-    import os
-    import json
-    import sys
-    from lcaml_lexer import Syntax
-    import interpreter as interpreter_mod
-
-    @interface
-    def test_pyffi(n: int):
-        print("wow call to python", n)
-        return n + 99
-
-    @interface
-    def test_pyffi_ext(_):
-        # returns a python function
-        def inner(n):
-            print("lcaml just called a python function that was returned from a pyffi")
-            return n + 10
-
-        return inner
-
-    @interface
-    def append_to_list(lst: list, item):
-        print("lcaml called a python function that appends to a list")
-        lst.append(item)
-        return lst
-
-    def get_variables(others: dict):
-        variables = interpreter_mod.lcamlify_vars(
-            {
-                "test_pyffi": test_pyffi,
-                "test_pyffi_ext": test_pyffi_ext,
-                "append_to_list": append_to_list,
-            }
-        )
-        variables.update(others)
-        return variables
-
-    if len(sys.argv) > 1:
-        file = sys.argv[1]
-    else:
-        file = "tests/pyffi_test.lml"
-        # raise Exception("Please provide a file to run.")
-    if len(sys.argv) > 2:
-        syntax_file = sys.argv[2]
-    else:
-        syntax_file = None
-    if not file.endswith(".lml"):
-        raise Exception("Please provide a .lml file to run.")
-    if not os.path.exists(file):
-        raise FileNotFoundError(f"File {file} not found.")
-    syntax = None
-    if syntax_file is not None:
-        if not os.path.exists(syntax_file):
-            raise FileNotFoundError(f"Syntax file {syntax_file} not found.")
-        if not syntax_file.endswith(".json"):
-            raise Exception("Please provide a .json file for syntax.")
-        with open(syntax_file, "r") as f:
-            syntax = json.load(f)
-    with open(file, "r") as f:
-        code = f.read()
-    if syntax is not None:
-        syntax = Syntax(**syntax)
-    interpreter = interpreter_mod.Interpreter(code, syntax)
-    variables = get_variables(interpreter_mod.get_builtins())
-    ret = interpreter.execute(variables)
-    print("---------------------")
-    print("Interpreter returned:", ret)
-
-
-if __name__ == "__main__":
-    _test()

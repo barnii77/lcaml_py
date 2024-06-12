@@ -221,6 +221,29 @@ def l_import(context, args):
     )
 
 
+@pyffi.raw(name="fuse")
+def l_fuse(context, args):
+    """fuses 2 tables together"""
+    if len(args) not in (2, 3):
+        raise ValueError("fuse takes 2 or 3 arguments: table1, table2, [bool inplace]")
+    if not all(arg.type == interpreter_types.DType.TABLE for arg in args):
+        raise ValueError("arguments must be of type table")
+    table1, table2 = args[0].value, args[1].value
+    inplace = False
+    if len(args) == 3:
+        if args[2].type != interpreter_types.DType.BOOL:
+            raise ValueError("argument 3 (inplace) must be of type bool")
+        inplace = args[2].value
+    if inplace:
+        data = table1.fields
+    else:
+        data = table1.fields.copy()
+    data.update(table2.fields)
+    if inplace:
+        return table1
+    return interpreter_types.Object(interpreter_types.DType.TABLE, data)
+
+
 @pyffi.interface(name="sleep")
 def l_sleep(seconds):
     if not isinstance(seconds, (int, float)):
@@ -228,7 +251,7 @@ def l_sleep(seconds):
     time.sleep(seconds)
 
 
-BUILTINS = {
+LML_EXPORTS = {
     "print": l_print,
     "println": l_println,
     "input": l_input,
@@ -246,5 +269,6 @@ BUILTINS = {
     "append": l_append,
     "pop": l_pop,
     "import": l_import,
+    "fuse": l_fuse,
     "sleep": l_sleep,
 }

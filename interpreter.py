@@ -12,12 +12,12 @@ def lcamlify_vars(variables: dict[str, object]) -> dict[AstIdentifier, object]:
     result = {}
     for name, value in variables.items():
         name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
-        result[name_ast_id] = value
+        result[name_ast_id] = lcamlify_vars(value) if isinstance(value, dict) else value
     return result
 
 
 def get_builtins():
-    return lcamlify_vars(lcaml_builtins.BUILTINS)
+    return lcamlify_vars(lcaml_builtins.LML_EXPORTS)
 
 
 class Interpreter:

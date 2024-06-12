@@ -8,6 +8,9 @@ LCaml is an esoteric interpreted programming language written primarily to troll
 This is also one of the main reasons to write the interpreter in python as opposed to a more suitable language.
 However, I might come back to LCaml in the future and write an interpreter in Rust, maybe even a compiler.
 
+# LCaml foundation (lol)
+The arch nemesis of the rust foundation, the LCaml foundation can be found here: https://discord.gg/bPNDJq9zmg
+
 # Usage
 To run an lcaml program, just run `python main.py lcaml_file.lml` in your terminal. This assumes you have python installed. The project does not have any requirements that are not part of the python standard library, therefore there is no requirements.txt file.
 Optionally, you can also provide a second filepath to a json file. This file will be used to overwrite the syntax of the program you are writing. Notice that if you import any files in the file you are executing, you will need to explicitly specify the syntax file to use for the imported file as a second argument to the import builtin. This argument is optional and the interpreter will, if not provided, use the default lcaml syntax.
@@ -16,10 +19,12 @@ So, to summarize
 
 # Syntax file format
 The syntax json file format is the following:
+```json
 {
     "field_name": "field_pattern",
-    "second_field_name": "second_field_pattern"
+    "second_field_name": ["second_field_pattern", group_int]
 }
+```
 
 Here, "field_name" has to be replaced with the field you want to configure, the names of which can be found in the Syntax class in the lcaml_lexer.py file.
 Here are some of the most important ones:

@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    {
+      "name": "lcaml",
+      "url": "https://github.com/barnii77/lcaml_py"
+    }
+  ]
+}
