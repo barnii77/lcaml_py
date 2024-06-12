@@ -1,3 +1,4 @@
-./setup.cfg
-./pyrightconfig.json
 ./__pycache__/
+./__modules/
+./.venv/
+./.idea/
