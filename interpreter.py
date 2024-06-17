@@ -4,16 +4,17 @@ import lcaml_lexer
 import lcaml_parser
 import lcaml_builtins
 import interpreter_vm
+import lcaml_expression
 from parser_types import AstIdentifier
 from token_type import Token, TokenKind
 
 
-def lcamlify_vars(variables: dict[str, object]) -> dict[AstIdentifier, object]:
+def lcamlify_vars(variables: dict[str, object]) -> "lcaml_expression.Table[dict[AstIdentifier, object]]":
     result = {}
     for name, value in variables.items():
         name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
         result[name_ast_id] = lcamlify_vars(value) if isinstance(value, dict) else value
-    return result
+    return lcaml_expression.Table(result)
 
 
 def get_builtins():

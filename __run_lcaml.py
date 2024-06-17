@@ -5,6 +5,7 @@ import interpreter as interpreter_mod
 
 # lcaml ffi module imports
 import lcaml_builtins
+import __modules.pygame_lcaml.module
 
 
 def run(file, syntax_file, print_ret=False):
@@ -28,13 +29,13 @@ def run(file, syntax_file, print_ret=False):
     # fuse all module exports into one dict
     mod_vars = {
         name: thing
-        for mod in map(lambda mod: mod.LML_EXPORTS, [])
-        for name, thing in mod.items()
+        for mod in map(lambda mod: mod.LML_EXPORTS, [__modules.pygame_lcaml.module])
+        for name, thing in (mod.items() if isinstance(mod, dict) else mod.fields.items())
     }
     # put builtins directly into context and external python functions into __extern_py intrinsic
     variables = interpreter_mod.lcamlify_vars(
         {**lcaml_builtins.LML_EXPORTS, "__extern_py": mod_vars}
-    )
+    ).fields
     result = interpreter.execute(variables)
     if print_ret and result is not None:
         print("\n", result, sep='')
@@ -55,4 +56,4 @@ def main(file, syntax_file=None, print_ret=False):
         run(file, syntax_file, print_ret)
 
 
-main("/home/david/projects/lcaml/lcaml_py/tests/end_to_end/a.lml", None, True)
+main(r"H:\Personal\lcaml_py\tests\pygame_bindings_test.lml", None, True)

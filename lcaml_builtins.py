@@ -1,5 +1,6 @@
 import json
 import time
+import sys
 import os
 import interpreter
 import lcaml_expression
@@ -78,8 +79,8 @@ def l_set(context, args):
     if len(args) != 3:
         raise ValueError("set takes 3 arguments: table, key, value")
     if args[0].type not in (
-        interpreter_types.DType.TABLE,
-        interpreter_types.DType.LIST,
+            interpreter_types.DType.TABLE,
+            interpreter_types.DType.LIST,
     ):
         raise TypeError("argument 1 (iter) must be of type table or list")
     iterable, key, value = args[0].value, args[1], args[2]
@@ -100,8 +101,8 @@ def l_get(context, args):
     if len(args) != 2:
         raise ValueError("get takes 2 arguments: table, key")
     if args[0].type not in (
-        interpreter_types.DType.TABLE,
-        interpreter_types.DType.LIST,
+            interpreter_types.DType.TABLE,
+            interpreter_types.DType.LIST,
     ):
         raise ValueError("argument 1 (table) must be of type table")
     iterable, key = args[0].value, args[1]
@@ -122,8 +123,8 @@ def l_len(context, args):
     if len(args) != 1:
         raise ValueError("len takes 1 argument: iterable")
     if args[0].type not in (
-        interpreter_types.DType.TABLE,
-        interpreter_types.DType.LIST,
+            interpreter_types.DType.TABLE,
+            interpreter_types.DType.LIST,
     ):
         raise ValueError("argument 1 (table) must be of type table or list")
     iterable = args[0].value
@@ -213,12 +214,26 @@ def l_import(context, args):
         syntax_dict = json.loads(syntax_raw)
         syntax = lcaml_lexer.Syntax(**syntax_dict)
     file_interpreter = interpreter.Interpreter(code, syntax)
-    result = file_interpreter.execute()
+    result = file_interpreter.execute(context)
     return (
         result
         if result is not None
         else interpreter_types.Object(interpreter_types.DType.UNIT, None)
     )
+
+
+@pyffi.raw(name="import_glob")
+def l_import_glob(context, args):
+    if len(args) not in (1, 2):
+        raise ValueError("import takes 1 or 2 arguments: filepath, Optional[syntax]")
+    if not args[0].type == interpreter_types.DType.STRING:
+        raise ValueError("argument 1 (filepath) must be of type string")
+    dirpath = os.path.join(os.path.dirname(sys.argv[0]), "__modules", args[0].value)
+    if not os.path.exists(dirpath):
+        return interpreter_types.Object(interpreter_types.DType.INT, 1)
+    filepath = os.path.join(dirpath, "module.lml")
+    args = (interpreter_types.Object(interpreter_types.DType.STRING, filepath),)
+    return l_import.execute(context, args)
 
 
 @pyffi.raw(name="fuse")
@@ -242,6 +257,11 @@ def l_fuse(context, args):
     if inplace:
         return table1
     return interpreter_types.Object(interpreter_types.DType.TABLE, data)
+
+
+@pyffi.interface(name="exit")
+def l_exit(code: int = 0):
+    sys.exit(code)
 
 
 @pyffi.interface(name="sleep")
@@ -269,6 +289,7 @@ LML_EXPORTS = {
     "append": l_append,
     "pop": l_pop,
     "import": l_import,
+    "import_glob": l_import_glob,
     "fuse": l_fuse,
-    "sleep": l_sleep,
+    "exit": l_exit
 }

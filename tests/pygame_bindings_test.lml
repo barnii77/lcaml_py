@@ -1,0 +1,11 @@
+let lg = import_glob "pygame_lcaml";
+let size = [1000, 1000];
+let win = (lg.display.set_mode) size;
+let _ = println "hello world";
+let _ = (lg.time.wait) 1000;
+let color = [255, 255, 255];
+let pos = [0, 0, 100, 100];
+let _ = (lg.draw.rect) win color pos;
+let _ = (lg.display.flip) ();
+let _ = (lg.time.wait) 1000;
+let _ = (lg.quit) ();

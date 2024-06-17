@@ -19,7 +19,7 @@ from typing import List, Set
 
 
 def get_lcaml_install_dir():
-    path = os.path.abspath(sys.argv[0])
+    path = os.path.abspath(sys.argv[0])  # __path__ ?
     path = os.path.dirname(path)
     return path
 
