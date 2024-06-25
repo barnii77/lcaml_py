@@ -2,7 +2,7 @@ import core.lcaml_expression as lcaml_expression
 import core.lcaml_parser as lcaml_parser
 
 from typing import List, Any, Tuple, Set
-from core.lcaml_utils import split_at_context_end, PhantomType
+from core.lcaml_utils import split_at_context_end, PhantomType, indent
 from core.token_type import Token, TokenKind
 from core.ast_related import AstRelated
 from core.lcaml_lexer import Syntax
@@ -35,6 +35,9 @@ class AstIdentifier(AstRelated):
     def __hash__(self):
         return hash(self.name)
 
+    def to_python(self):
+        return "", self.name, ""
+
 
 class AstStatementType:
     ASSIGNMENT = 0
@@ -58,6 +61,9 @@ class AstAssignment(AstRelated):
     def __str__(self):
         return "AstAssignment(" + str(self.identifier) + ", " + str(self.value) + ")"
 
+    def to_python(self):
+        return "", self.identifier.name + " = " + self.value.to_python(), ""
+
 
 class AstReturn(AstRelated):
     """
@@ -73,6 +79,9 @@ class AstReturn(AstRelated):
     def __str__(self):
         return "AstReturn(" + str(self.value) + ")"
 
+    def to_python(self):
+        return "", "return " + self.value.to_python(), ""
+
 
 class AstControlFlowBranch(AstRelated):
     """
@@ -83,14 +92,20 @@ class AstControlFlowBranch(AstRelated):
 
     """
 
-    def __init__(self, condition, body):
+    def __init__(self, condition, body, _is_first: bool = False):
         self.condition = condition
         self.body = body
+        self._is_first = _is_first
 
     def __str__(self):
         return (
             "AstControlFlowBranch(" + str(self.condition) + ", " + str(self.body) + ")"
         )
+
+    def to_python(self):
+        if self._is_first:
+            return "", "if " + self.condition.to_python() + ":\n" + indent(self.body.to_python()), ""
+        return "", "elif " + self.condition.to_python() + ":\n" + indent(self.body.to_python()), ""
 
 
 class AstControlFlow(AstRelated):
@@ -104,6 +119,9 @@ class AstControlFlow(AstRelated):
 
     def __str__(self):
         return "AstControlFlow(" + str(self.branches) + ")"
+
+    def to_python(self):
+        return "", "\n".join(branch.to_python() for branch in self.branches), ""
 
     @classmethod
     def from_stream(
@@ -158,7 +176,7 @@ class AstControlFlow(AstRelated):
         stream.pop(0)  # remove RCURLY
         body, symbols_used = lcaml_parser.Ast.from_stream(body, syntax)
         all_symbols_used.update(symbols_used)
-        branch = AstControlFlowBranch(expression, body)
+        branch = AstControlFlowBranch(expression, body, _is_first=True)
         branches.append(branch)
 
         # parse all the else ifs

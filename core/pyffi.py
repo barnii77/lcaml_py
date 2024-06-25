@@ -4,7 +4,7 @@ import core.interpreter_vm as lcaml_vm
 import core.parser_types as parser_types
 import core.token_type as token_type
 import core.lcaml_expression as lcaml_expression
-from typing import Callable
+from typing import Callable, Optional
 
 
 def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
@@ -90,7 +90,10 @@ def _python_to_lcaml(py_obj, interpreter_vm=None):
 
 
 def interface(
-    _func=None, interpreter_vm=None, name: str = "PyFFI_Interface"
+    _func=None,
+    interpreter_vm=None,
+    name: str = "PyFFI_Interface",
+    python_template: Optional[str] = None,
 ) -> Callable:
     """
     A high-level interface for functions that take a list of arguments with python object types and return a python object.
@@ -126,7 +129,9 @@ def interface(
     return decorator if _func is None else decorator(_func)
 
 
-def raw(_func=None, name: str = "PyFFI_Raw") -> Callable:
+def raw(
+    _func=None, name: str = "PyFFI_Raw", python_template: Optional[str] = None
+) -> Callable:
     """
     A raw interface is a function that takes a context and a list of arguments with lcaml object types.
     The raw interface gives the programmer full power to do basically anything with the args and interpreter state.

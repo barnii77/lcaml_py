@@ -12,10 +12,15 @@ However, I might come back to LCaml in the future and write an interpreter in Ru
 The arch nemesis of the rust foundation, the LCaml foundation can be found here: https://discord.gg/bPNDJq9zmg
 
 # Usage
+## Interpreter
 To run an lcaml program, just run `python main.py lcaml_file.lml` in your terminal. This assumes you have python installed. The project does not have any requirements that are not part of the python standard library, therefore there is no requirements.txt file.
 Optionally, you can also provide a second filepath to a json file. This file will be used to overwrite the syntax of the program you are writing. Notice that if you import any files in the file you are executing, you will need to explicitly specify the syntax file to use for the imported file as a second argument to the import builtin. This argument is optional and the interpreter will, if not provided, use the default lcaml syntax.
 So, to summarize
-`python main.py <program>.lml <optional: syntax.json>` to run a program using the lcaml interpreter.
+`python interpreter/main.py program.lml -s syntax.json` to run a program using the lcaml interpreter. Note that the -s argument is optional.
+
+## LTP-Compiler
+To use the LCaml-to-Python compiler (that transpiles to python), use `python compyla/main.py program.lml other_file.lml third_file.lml -s syntax.json`, where the -s argument is optional.
+The compiler will create a build folder if one doesn't already exist, remove any files potentially in there (rm -rf build/*) and dump in all lcaml files with the same name (but .py extension). It will also put a _lpy_runtime.py file there, which is a collection of functions that are automatically imported by every file which are used to emulate the behaviour of some lcaml builtins that cannot be statically transpiled to python (because they behave differently depending on datatype and would require different python code depending on types, e.g. `set` and `get`).
 
 # Syntax file format
 The syntax json file format is the following:

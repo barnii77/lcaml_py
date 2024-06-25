@@ -7,7 +7,14 @@ from core.resolvable import Resolvable
 from core.ast_related import AstRelated
 from core.lcaml_lexer import Syntax
 from core.token_type import Token, TokenKind
-from core.lcaml_utils import PhantomType, split_at_context_end, EqualsAny
+from core.lcaml_utils import (
+    PhantomType,
+    split_at_context_end,
+    EqualsAny,
+    get_unique_name,
+    indent,
+    expect_only_expression,
+)
 from core.interpreter_types import Object, DType
 from core.operation_kind import OperationKind
 from typing import List, Dict, Optional, Set, Iterable, Any
@@ -36,6 +43,27 @@ SYMBOL_TO_OPKIND = {
     "&&": OperationKind.AND,
     "|": OperationKind.BITOR,
     "&": OperationKind.BITAND,
+}
+
+OPKIND_TO_SYMBOL = {
+    OperationKind.ADD: "+",
+    OperationKind.SUB: "-",
+    OperationKind.POW: "**",
+    OperationKind.MUL: "*",
+    OperationKind.DIV: "/",
+    OperationKind.MOD: "%",
+    OperationKind.NOT: "!",
+    OperationKind.EQ: "==",
+    OperationKind.NEQ: "!=",
+    OperationKind.LT: "<",
+    OperationKind.GT: ">",
+    OperationKind.FLIP: "~",
+    OperationKind.LTE: "<=",
+    OperationKind.GTE: ">=",
+    OperationKind.OR: "||",
+    OperationKind.AND: "&&",
+    OperationKind.BITOR: "|",
+    OperationKind.BITAND: "&",
 }
 
 
@@ -78,6 +106,21 @@ class Function(AstRelated, Resolvable):
 
     def __str__(self):
         return "Function(" + str(self.body) + ", " + str(self.arguments) + ")"
+
+    def to_python(self):
+        name = get_unique_name()
+        args = [expect_only_expression(arg.to_python()) for arg in self.arguments]
+        function_def = (
+            "def " + name + "(" + ", ".join(args) + "):" + indent(self.body.to_python())
+        )
+        value = (
+            "".join(f"lambda {arg}: " for arg in args)
+            + name
+            + "("
+            + ", ".join(args)
+            + ")"
+        )
+        return function_def, value, ""
 
     def resolve(self, context: Context) -> Object:
         # if this is called, it's probably trying to resolve identifier but actually already has function
@@ -174,6 +217,29 @@ class Operation(AstRelated, Resolvable):
             + ")"
         )
 
+    def to_python(self):
+        # FIXME actually, there can be a pre and post inserts. they should be \n joined and bubbled up
+        if self.is_unary:
+            pre_insert, expr, post_insert = self.right.to_python()
+            return (
+                pre_insert,
+                f"{OPKIND_TO_SYMBOL[self.operation]}({expr})",
+                post_insert,
+            )
+        else:
+            assert self.left is not None
+            pre_inserts, exprs, post_inserts = zip(
+                *[value.to_python() for value in (self.left, self.right)]
+            )
+            pre_insert = "\n".join(pre_inserts)
+            post_insert = "\n".join(post_inserts)
+            left, right = exprs
+            return (
+                pre_insert,
+                f"{left} {OPKIND_TO_SYMBOL[self.operation]} {right}",
+                post_insert,
+            )
+
     def resolve(self, context: Context) -> Object:
         """
         This function evaluates the operation for values of left and right
@@ -246,6 +312,17 @@ class StructType(AstRelated, Resolvable):
     def __str__(self):
         return f"StructType({self.fields})"
 
+    def to_python(self):
+        return (
+            "",
+            "set(["
+            + ", ".join(
+                expect_only_expression(field.to_python()) for field in self.fields
+            )
+            + "])",
+            "",
+        )
+
     def resolve(self, context: Context):
         return Object(DType.STRUCT_TYPE, self)
 
@@ -308,6 +385,14 @@ class LList(AstRelated, Resolvable):
 
     def __str__(self):
         return f"List({self.values})"
+
+    def to_python(self):
+        pre_inserts, exprs, post_inserts = zip(
+            *[value.to_python() for value in self.values]
+        )
+        pre_insert = "\n".join(pre_inserts)
+        post_insert = "\n".join(post_inserts)
+        return pre_insert, "[" + ", ".join(exprs) + "]", post_insert
 
     def resolve(self, context: Context):
         for i, expression in enumerate(self.values):
@@ -374,6 +459,20 @@ class Table(AstRelated, Resolvable, Gettable):
     def __str__(self):
         return f"Table({self.fields})"
 
+    def to_python(self):
+        # TODO
+        keys = self.fields.keys()
+        pre_inserts, exprs, post_inserts = zip(
+            *[value.to_python() for value in self.fields.values()]
+        )
+        pre_insert = "\n".join(pre_inserts)
+        post_insert = "\n".join(post_inserts)
+        return (
+            pre_insert,
+            "{" + ", ".join(key + ": " + expr for key, expr in zip(keys, exprs)) + "}",
+            post_insert,
+        )
+
     def resolve(self, context: Context):
         for field, expression in self.fields.items():
             self.fields[field] = expression.resolve(context)
@@ -382,9 +481,9 @@ class Table(AstRelated, Resolvable, Gettable):
     def get(self, ident: "parser_types.AstIdentifier") -> Object:
         if not isinstance(ident, parser_types.AstIdentifier):
             raise TypeError(f"Expected parser_types.AstIdentifier, got {ident}")
-        if ident not in self.fields:
+        if ident.name not in self.fields:
             raise ValueError(f"Field {ident} not found in struct {self}")
-        return self.fields[ident]
+        return self.fields[ident.name]
 
     @classmethod
     def from_stream(cls, stream: TokenStream, syntax: Syntax = Syntax()):
@@ -438,6 +537,9 @@ class Table(AstRelated, Resolvable, Gettable):
         ):
             raise ValueError("Unexpected end of tokenstream")
         assignments = dict(assignments)
+        assignments = {
+            field.name: expression for field, expression in assignments.items()
+        }
         return cls(assignments), stream, all_symbols_used
 
 
@@ -464,6 +566,13 @@ class FieldAccess(AstRelated, Resolvable):
 
     def __str__(self):
         return "AstFieldAccess(" + str(self.object) + ", " + str(self.field) + ")"
+
+    def to_python(self) -> tuple[str, str, str]:
+        return (
+            "",
+            f"{expect_only_expression(self.object.to_python())}[{expect_only_expression(self.field.to_python())}]",
+            "",
+        )
 
     def resolve(self, context: Context) -> Object:
         obj = self.object.resolve(context)
@@ -507,6 +616,23 @@ class FunctionCall(AstRelated, Resolvable):
             + ", "
             + str(self.arguments)
             + ")"
+        )
+
+    def to_python(self) -> tuple[str, str, str]:
+        f_pre_insert, f_expr, f_post_insert = self.function_resolvable.to_python()
+        arg_pre_inserts, arg_exprs, arg_post_inserts = zip()
+
+        pre_insert = "\n".join((f_pre_insert, *arg_pre_inserts))
+        post_insert = "\n".join((f_post_insert, *arg_post_inserts))
+
+        # NOTE: this calling method might seem weird, but for the sake of currying, functions are transpiled as lambda chains and each arg needs to be provided individually
+        return (
+            pre_insert,
+            "("
+            + f_expr
+            + ")"
+            + "".join("(" + arg_expr + ")" for arg_expr in arg_exprs),
+            post_insert,
         )
 
     def resolve(self, context: Context) -> Optional[Object]:
@@ -582,6 +708,9 @@ class Variable(AstRelated, Resolvable):
     def __str__(self):
         return "Variable(" + str(self.identifier) + ")"
 
+    def to_python(self):
+        return "", expect_only_expression(self.identifier.to_python()), ""
+
     def resolve(self, context: Context):
         result = context.get(self.identifier)
         if result is None:
@@ -631,6 +760,9 @@ class Constant(AstRelated, Resolvable):
     def __str__(self):
         return "Constant(" + str(self.value) + ")"
 
+    def to_python(self):
+        return "", str(self.value.value), ""
+
     def resolve(self, context: Context):
         return self.value
 
@@ -653,6 +785,9 @@ class Expression(AstRelated, Resolvable):
 
     def __str__(self):
         return "Expression(" + str(self.expression) + ")"
+
+    def to_python(self):
+        return self.expression.to_python()
 
     def resolve(self, context: Context):
         """

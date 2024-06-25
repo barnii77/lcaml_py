@@ -3,7 +3,26 @@ from core.token_type import TokenKind, Token
 
 
 LCAML_RECURSION_LIMIT = 10 ** 7
+_uuid = 0
 TokenStream = List[Token]
+
+
+def expect_only_expression(to_python_return: tuple[str, str, str]) -> str:
+    pre_insert, expr, post_insert = to_python_return
+    if pre_insert or post_insert:
+        raise ValueError("Expected only expression")
+    return expr
+
+
+def indent(string: str, level: int = 1):
+    return "\n".join("    " * level + line for line in string.split("\n"))
+
+
+def get_unique_name():
+    global _uuid
+    result = _uuid
+    _uuid += 1
+    return "_" + str(result)
 
 
 def unreachable():
