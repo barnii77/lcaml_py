@@ -15,7 +15,7 @@ from core.lcaml_lexer import Syntax
 import core.interpreter as interpreter_mod
 
 # lcaml ffi module imports
-import core.lcaml_builtins
+import core.lcaml_builtins as lcaml_builtins
 {{{0}}}
 
 def run(file, syntax_file, print_ret=False):
@@ -100,6 +100,7 @@ if __name__ == "__main__":
     inner_group.add_argument(
         "-r", "--remove-dep", default=None, help="Remove dependency"
     )
+    inner_group.add_argument("--debug", action="store_true", help="If set, keep __run_lcaml.py temp file after completion.")
     args = parser.parse_args()
 
     if args.file:
@@ -167,6 +168,8 @@ if __name__ == "__main__":
             shell=True,
             executable="/bin/bash" if not sys.platform.startswith("win") else None,
         )
+        if not args.debug:
+            os.remove(run_lcaml)
 
     elif args.install_deps:
         # install dependencies listed in args.install_deps (file path)
