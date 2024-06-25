@@ -1,6 +1,7 @@
 import ast
 import random
 import string
+import os
 
 
 def refactor_python_code(input_code):
@@ -33,12 +34,10 @@ def refactor_python_code(input_code):
 
 # Example usage:
 if __name__ == "__main__":
-    original_code = """
-def greet(name):
-    print("Hello, " + name)
-
-greet("World")
-"""
-
-    refactored_code = refactor_python_code(original_code)
-    print(refactored_code)
+    for file in os.listdir():
+        if file.endswith(".py") and file != "randomize_names.py":
+            with open(file, "r") as f:
+                original_code = f.read()
+            refactored_code = refactor_python_code(original_code)
+            with open(file, "w") as f:
+                f.write(refactored_code)
