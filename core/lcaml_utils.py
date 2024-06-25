@@ -1,5 +1,5 @@
 from typing import List
-from token_type import TokenKind, Token
+from core.token_type import TokenKind, Token
 
 
 LCAML_RECURSION_LIMIT = 10 ** 7

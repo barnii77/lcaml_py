@@ -1,7 +1,6 @@
-# import parser_types
-import interpreter_types
+import core.interpreter_types as interpreter_types
 from typing import Dict, List
-from resolvable import Resolvable
+from core.resolvable import Resolvable
 
 Context = Dict['parser_types.AstIdentifier', 'interpreter_types.Object']
 

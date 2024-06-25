@@ -15,7 +15,7 @@ from core.lcaml_lexer import Syntax
 import core.interpreter as interpreter_mod
 
 # lcaml ffi module imports
-import core.lcaml_builtins as lcaml_builtins
+import core.lcaml_builtins
 {{{0}}}
 
 def run(file, syntax_file, print_ret=False):
@@ -40,12 +40,12 @@ def run(file, syntax_file, print_ret=False):
     mod_vars = {
         name: thing
         for mod in map(lambda mod: mod.LML_EXPORTS, [{{{1}}}])
-        for name, thing in mod.items()
+        for name, thing in (mod.items() if isinstance(mod, dict) else mod.fields.items())
     }
     # put builtins directly into context and external python functions into __extern_py intrinsic
     variables = interpreter_mod.lcamlify_vars(
         {**lcaml_builtins.LML_EXPORTS, "__extern_py": mod_vars}
-    )
+    ).fields
     result = interpreter.execute(variables)
     if print_ret and result is not None:
         print("\\n", result, sep='')
@@ -66,7 +66,7 @@ def main(file, syntax_file=None, print_ret=False):
         run(file, syntax_file, print_ret)
 
 
-main({{{2}}}, {{{3}}}, True)
+main(r{{{2}}}, {{{3}}}, True)
 """
 
 
@@ -81,7 +81,7 @@ def has_module_py(dep):
     assert (
         package_dir
     ), "Bug in package manager. Please report. Directory missing but not detected as missing in checks."
-    os.path.exists(os.path.join(package_dir, "module.py"))
+    return os.path.exists(os.path.join(package_dir, "module.py"))
 
 
 if __name__ == "__main__":
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         py_deps_set = filter(has_module_py, deps_set)
         # if there is a python component in the module, the exported stuff has to be in module.py, hence name + ".module"
         py_deps = ", ".join(
-            map(lambda x: x[0].replace("-", "_") + ".module", py_deps_set)
+            map(lambda x: "__modules." + x[0].replace("-", "_") + ".module", py_deps_set)
         )
 
         code = format(

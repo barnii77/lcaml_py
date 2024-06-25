@@ -19,9 +19,9 @@ from typing import List, Set
 
 
 def get_lcaml_install_dir():
-    path = os.path.abspath(sys.argv[0])
-    path = os.path.dirname(path)
-    path = os.path.dirname(path)  # main is in interpreter folder
+    path = os.path.abspath(sys.argv[0])  # path/interpreter/main.py
+    path = os.path.dirname(path)  # path/interpreter/
+    path = os.path.dirname(path)  # path/
     return path
 
 

@@ -1,6 +1,6 @@
 import re
 from typing import List, Dict, Callable
-from token_type import Token
+from core.token_type import Token
 
 
 class LexError(Exception):

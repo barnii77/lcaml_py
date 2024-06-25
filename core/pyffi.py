@@ -1,9 +1,9 @@
-import extern_python
-from interpreter_types import Object, DType
-import interpreter_vm as lcaml_vm
-import parser_types
-import token_type
-import lcaml_expression
+import core.extern_python as extern_python
+from core.interpreter_types import Object, DType
+import core.interpreter_vm as lcaml_vm
+import core.parser_types as parser_types
+import core.token_type as token_type
+import core.lcaml_expression as lcaml_expression
 from typing import Callable
 
 

@@ -1,9 +1,7 @@
-from operation_kind import OperationKind
+from core.operation_kind import OperationKind
 from typing import Any
 
-from resolvable import Resolvable
-
-# from parser_types import AstIdentifier
+from core.resolvable import Resolvable
 
 
 class DType:

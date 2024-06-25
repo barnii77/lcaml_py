@@ -1,5 +1,5 @@
 from typing import List
-from token_type import Token
+from core.token_type import Token
 
 TokenStream = List[Token]
 

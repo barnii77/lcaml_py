@@ -1,16 +1,15 @@
-import lcaml_parser
-import parser_types
-import interpreter_vm as interpreter_vm_mod
-import extern_python
+import core.lcaml_parser as lcaml_parser
+import core.parser_types as parser_types
+import core.interpreter_vm as interpreter_vm_mod
+import core.extern_python as extern_python
 
-from resolvable import Resolvable
-from gettable import Gettable
-from ast_related import AstRelated
-from lcaml_lexer import Syntax
-from token_type import Token, TokenKind
-from lcaml_utils import PhantomType, split_at_context_end, EqualsAny
-from interpreter_types import Object, DType
-from operation_kind import OperationKind
+from core.resolvable import Resolvable
+from core.ast_related import AstRelated
+from core.lcaml_lexer import Syntax
+from core.token_type import Token, TokenKind
+from core.lcaml_utils import PhantomType, split_at_context_end, EqualsAny
+from core.interpreter_types import Object, DType
+from core.operation_kind import OperationKind
 from typing import List, Dict, Optional, Set, Iterable, Any
 
 
@@ -38,6 +37,11 @@ SYMBOL_TO_OPKIND = {
     "|": OperationKind.BITOR,
     "&": OperationKind.BITAND,
 }
+
+
+class Gettable:
+    def get(self, ident: "parser_types.AstIdentifier") -> "Object":
+        raise NotImplementedError()
 
 
 class FunctionParseState:
@@ -914,4 +918,3 @@ class Expression(AstRelated, Resolvable):
 
         expression, symbols_used = cls._build_from(expression_stream, syntax)
         return expression, remaining_stream, symbols_used
-

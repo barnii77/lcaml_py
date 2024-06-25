@@ -1,19 +1,20 @@
 import sys
-from lcaml_utils import LCAML_RECURSION_LIMIT
-import lcaml_lexer
-import lcaml_parser
-import lcaml_builtins
-import interpreter_vm
-from parser_types import AstIdentifier
-from token_type import Token, TokenKind
+from core.lcaml_utils import LCAML_RECURSION_LIMIT
+import core.lcaml_lexer as lcaml_lexer
+import core.lcaml_parser as lcaml_parser
+import core.lcaml_builtins as lcaml_builtins
+import core.interpreter_vm as interpreter_vm
+import core.lcaml_expression as lcaml_expression
+from core.parser_types import AstIdentifier
+from core.token_type import Token, TokenKind
 
 
-def lcamlify_vars(variables: dict[str, object]) -> dict[AstIdentifier, object]:
+def lcamlify_vars(variables: dict[str, object]) -> "lcaml_expression.Table[dict[AstIdentifier, object]]":
     result = {}
     for name, value in variables.items():
         name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
         result[name_ast_id] = lcamlify_vars(value) if isinstance(value, dict) else value
-    return result
+    return lcaml_expression.Table(result)
 
 
 def get_builtins():

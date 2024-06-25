@@ -1,11 +1,11 @@
-import lcaml_expression
-import lcaml_parser
+import core.lcaml_expression as lcaml_expression
+import core.lcaml_parser as lcaml_parser
 
 from typing import List, Any, Tuple, Set
-from lcaml_utils import split_at_context_end, PhantomType
-from token_type import Token, TokenKind
-from ast_related import AstRelated
-from lcaml_lexer import Syntax
+from core.lcaml_utils import split_at_context_end, PhantomType
+from core.token_type import Token, TokenKind
+from core.ast_related import AstRelated
+from core.lcaml_lexer import Syntax
 
 
 TokenStream = List[Token]

@@ -1,10 +1,10 @@
 import os
 import json
-from lcaml_lexer import Syntax
-import interpreter as interpreter_mod
+from core.lcaml_lexer import Syntax
+import core.interpreter as interpreter_mod
 
 # lcaml ffi module imports
-import lcaml_builtins
+import core.lcaml_builtins
 import __modules.pygame_lcaml.module
 
 
@@ -56,4 +56,4 @@ def main(file, syntax_file=None, print_ret=False):
         run(file, syntax_file, print_ret)
 
 
-main(r"H:\Personal\lcaml_py\tests\pygame_bindings_test.lml", None, True)
+main(r"/home/david/projects/lcaml/lcaml_py/tests/end_to_end/a.lml", None, True)

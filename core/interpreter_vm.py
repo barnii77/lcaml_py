@@ -1,6 +1,6 @@
 from typing import Optional
-import parser_types
-from interpreter_types import Object
+import core.parser_types as parser_types
+from core.interpreter_types import Object
 
 
 class InterpreterVM:

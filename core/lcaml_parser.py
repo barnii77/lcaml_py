@@ -1,10 +1,11 @@
-import lcaml_expression
-import parser_types
+
+import core.lcaml_expression as lcaml_expression
+import core.parser_types as parser_types
 
 from typing import Union, List, Set
-from token_type import Token, TokenKind
-from ast_related import AstRelated
-from lcaml_lexer import Syntax
+from core.token_type import Token, TokenKind
+from core.ast_related import AstRelated
+from core.lcaml_lexer import Syntax
 
 
 TokenStream = List[Token]
@@ -184,30 +185,3 @@ class Parser:
     def __call__(self) -> Ast:
         ast, _ = Ast.from_stream(self.stream, self.syntax)
         return ast
-
-
-if __name__ == "__main__":
-    # code = """
-    # let x = 10; -- x y z
-    # let y = 20;
-    # let z = x + y;
-    # """
-    code = """
-let fact = |x| {
-  if (x <= 1) {
-    return 1;
-  };
-  return x * __this (x - 1);
-};
-
-return {factorial: fact};
-"""
-    from lcaml_lexer import Lexer, Syntax
-
-    syntax = Syntax()
-    lexer = Lexer(code, syntax)
-    tokens = lexer()
-    parser = Parser(tokens, syntax)
-    ast = parser()
-    for statement in ast.statements:
-        print(statement)
