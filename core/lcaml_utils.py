@@ -1,9 +1,11 @@
+import hashlib
 from typing import List
 from core.token_type import TokenKind, Token
 
 
-LCAML_RECURSION_LIMIT = 10 ** 7
+LCAML_RECURSION_LIMIT = 10**7
 _uuid = 0
+NAME_GEN_N_HASH_DIGITS = 24
 TokenStream = List[Token]
 
 
@@ -20,9 +22,11 @@ def indent(string: str, level: int = 1):
 
 def get_unique_name():
     global _uuid
-    result = _uuid
     _uuid += 1
-    return "_" + str(result)
+    return (
+        "_"
+        + hashlib.md5(str(_uuid).encode("utf-8")).hexdigest()[:NAME_GEN_N_HASH_DIGITS]
+    )
 
 
 def unreachable():

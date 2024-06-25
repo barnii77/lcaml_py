@@ -9,12 +9,12 @@ import core.lcaml_lexer as lcaml_lexer
 import core.pyffi as pyffi
 
 
-@pyffi.interface(name="print")
+@pyffi.interface(name="print", python_funcname="lpy_print")
 def l_print(*args):
     print(*args, sep="", end="")
 
 
-@pyffi.interface(name="println")
+@pyffi.interface(name="println", python_funcname="lpy_println")
 def l_println(*args):
     print(*args, sep="")
 
@@ -42,7 +42,7 @@ def l_is_like(a, b):
     return False
 
 
-@pyffi.interface(name="float")
+@pyffi.interface(name="float", python_funcname="lpy_float")
 def l_float(x):
     try:
         return float(x)
@@ -50,7 +50,7 @@ def l_float(x):
         pass
 
 
-@pyffi.interface(name="int")
+@pyffi.interface(name="int", python_funcname="lpy_int")
 def l_int(x):
     try:
         return int(x)
@@ -58,7 +58,7 @@ def l_int(x):
         pass
 
 
-@pyffi.interface(name="string")
+@pyffi.interface(name="string", python_funcname="lpy_string")
 def l_string(x):
     try:
         return str(x)
@@ -66,7 +66,7 @@ def l_string(x):
         pass
 
 
-@pyffi.interface(name="bool")
+@pyffi.interface(name="bool", python_funcname="lpy_bool")
 def l_bool(x):
     try:
         return bool(x)
@@ -74,13 +74,13 @@ def l_bool(x):
         pass
 
 
-@pyffi.raw(name="set")
+@pyffi.raw(name="set", python_funcname="lpy_set")
 def l_set(context, args):
     if len(args) != 3:
         raise ValueError("set takes 3 arguments: table, key, value")
     if args[0].type not in (
-            interpreter_types.DType.TABLE,
-            interpreter_types.DType.LIST,
+        interpreter_types.DType.TABLE,
+        interpreter_types.DType.LIST,
     ):
         raise TypeError("argument 1 (iter) must be of type table or list")
     iterable, key, value = args[0].value, args[1], args[2]
@@ -96,13 +96,13 @@ def l_set(context, args):
     return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
-@pyffi.raw(name="get")
+@pyffi.raw(name="get", python_funcname="lpy_get")
 def l_get(context, args):
     if len(args) != 2:
         raise ValueError("get takes 2 arguments: table, key")
     if args[0].type not in (
-            interpreter_types.DType.TABLE,
-            interpreter_types.DType.LIST,
+        interpreter_types.DType.TABLE,
+        interpreter_types.DType.LIST,
     ):
         raise ValueError("argument 1 (table) must be of type table")
     iterable, key = args[0].value, args[1]
@@ -123,8 +123,8 @@ def l_len(context, args):
     if len(args) != 1:
         raise ValueError("len takes 1 argument: iterable")
     if args[0].type not in (
-            interpreter_types.DType.TABLE,
-            interpreter_types.DType.LIST,
+        interpreter_types.DType.TABLE,
+        interpreter_types.DType.LIST,
     ):
         raise ValueError("argument 1 (table) must be of type table or list")
     iterable = args[0].value
@@ -135,7 +135,7 @@ def l_len(context, args):
     return interpreter_types.Object(interpreter_types.DType.INT, len(iterable.fields))
 
 
-@pyffi.raw(name="keys")
+@pyffi.raw(name="keys", python_funcname="lpy_keys")
 def l_keys(context, args):
     if len(args) != 1:
         raise ValueError("keys takes 1 argument: table")
@@ -148,7 +148,7 @@ def l_keys(context, args):
     )
 
 
-@pyffi.raw(name="values")
+@pyffi.raw(name="values", python_funcname="lpy_values")
 def l_values(context, args):
     if len(args) != 1:
         raise ValueError("keys takes 1 argument: table")
@@ -161,7 +161,7 @@ def l_values(context, args):
     )
 
 
-@pyffi.raw(name="append")
+@pyffi.raw(name="append", python_funcname="lpy_append")
 def l_append(context, args):
     if len(args) != 2:
         raise ValueError("append takes 2 arguments: list, value")
@@ -172,7 +172,7 @@ def l_append(context, args):
     return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
-@pyffi.raw(name="pop")
+@pyffi.raw(name="pop", python_funcname="lpy_pop")
 def l_pop(context, args):
     if len(args) not in (1, 2):
         raise ValueError("append takes 2 arguments: list, index")
@@ -236,7 +236,7 @@ def l_import_glob(context, args):
     return l_import.execute(context, args)
 
 
-@pyffi.raw(name="fuse")
+@pyffi.raw(name="fuse", python_funcname="lpy_fuse")
 def l_fuse(context, args):
     """fuses 2 tables together"""
     if len(args) not in (2, 3):
@@ -291,5 +291,5 @@ LML_EXPORTS = {
     "import": l_import,
     "import_glob": l_import_glob,
     "fuse": l_fuse,
-    "exit": l_exit
+    "exit": l_exit,
 }

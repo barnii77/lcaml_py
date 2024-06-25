@@ -81,7 +81,7 @@ class Ast(AstRelated):
         return "Ast(" + str(self.statements) + ")"
 
     def to_python(self):
-        return "", "\n".join(statement.to_python() for statement in self.statements), ""
+        return "", "\n".join("\n".join(statement.to_python()) for statement in self.statements), ""
 
     @classmethod
     def from_stream(cls, stream: TokenStream, syntax: Syntax = Syntax()):

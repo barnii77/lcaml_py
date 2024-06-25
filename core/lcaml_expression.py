@@ -110,9 +110,8 @@ class Function(AstRelated, Resolvable):
     def to_python(self):
         name = get_unique_name()
         args = [expect_only_expression(arg.to_python()) for arg in self.arguments]
-        function_def = (
-            "def " + name + "(" + ", ".join(args) + "):" + indent(self.body.to_python())
-        )
+        body_pre_insert, body_block, body_post_insert = self.body.to_python()
+        function_def = "def " + name + "(" + ", ".join(args) + "):" + indent(body_block)
         value = (
             "".join(f"lambda {arg}: " for arg in args)
             + name
@@ -120,7 +119,11 @@ class Function(AstRelated, Resolvable):
             + ", ".join(args)
             + ")"
         )
-        return function_def, value, ""
+        return (
+            body_pre_insert + "\n" + function_def + "\n" + body_post_insert,
+            value,
+            "",
+        )
 
     def resolve(self, context: Context) -> Object:
         # if this is called, it's probably trying to resolve identifier but actually already has function
@@ -620,8 +623,9 @@ class FunctionCall(AstRelated, Resolvable):
 
     def to_python(self) -> tuple[str, str, str]:
         f_pre_insert, f_expr, f_post_insert = self.function_resolvable.to_python()
-        arg_pre_inserts, arg_exprs, arg_post_inserts = zip()
-
+        arg_pre_inserts, arg_exprs, arg_post_inserts = zip(
+            *[arg.to_python() for arg in self.arguments]
+        )
         pre_insert = "\n".join((f_pre_insert, *arg_pre_inserts))
         post_insert = "\n".join((f_post_insert, *arg_post_inserts))
 
@@ -761,7 +765,11 @@ class Constant(AstRelated, Resolvable):
         return "Constant(" + str(self.value) + ")"
 
     def to_python(self):
-        return "", str(self.value.value), ""
+        if self.value.type == DType.STRING:
+            value = '"' + str(self.value.value) + '"'
+        else:
+            value = str(self.value.value)
+        return "", value, ""
 
     def resolve(self, context: Context):
         return self.value

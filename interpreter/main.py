@@ -70,7 +70,7 @@ main(r{{{2}}}, {{{3}}}, True)
 """
 
 
-def format(string: str, *args):
+def format_code_template(string: str, *args):
     for i, a in enumerate(args):
         string = string.replace("{{{" + str(i) + "}}}", str(a))
     return string
@@ -149,7 +149,7 @@ if __name__ == "__main__":
             map(lambda x: "__modules." + x[0].replace("-", "_") + ".module", py_deps_set)
         )
 
-        code = format(
+        code = format_code_template(
             RUN_TEMPLATE,
             f"import {py_deps}\n" if py_deps else "",
             py_deps,

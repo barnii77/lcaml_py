@@ -1,1 +1,12 @@
 let x = 5;
+let j = "hello";
+let list = [1, 2, 3, 4.0, "5"];
+let table = {x: 5, y: 10, _2: "hello"};
+let function = |x| {return x + 1;};
+let result = function x;
+if (result == 6) {
+  let text = "haha, yeah!";
+} else {
+  let text = "oh, no!";
+}
+let _ = println result;

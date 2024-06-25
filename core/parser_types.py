@@ -103,9 +103,15 @@ class AstControlFlowBranch(AstRelated):
         )
 
     def to_python(self):
-        if self._is_first:
-            return "", "if " + self.condition.to_python() + ":\n" + indent(self.body.to_python()), ""
-        return "", "elif " + self.condition.to_python() + ":\n" + indent(self.body.to_python()), ""
+        kw = "if" if self._is_first else "elif"
+        cond_pre_insert, cond_expr, cond_post_insert = self.condition.to_python()
+        block_pre_insert, block, block_post_insert = self.body.to_python()
+
+        return (
+            cond_pre_insert + "\n" + block_pre_insert,
+            kw + " " + cond_expr + ":\n" + indent(block),
+            cond_post_insert + "\n" + block_post_insert,
+        )
 
 
 class AstControlFlow(AstRelated):
@@ -121,7 +127,10 @@ class AstControlFlow(AstRelated):
         return "AstControlFlow(" + str(self.branches) + ")"
 
     def to_python(self):
-        return "", "\n".join(branch.to_python() for branch in self.branches), ""
+        pre_inserts, branches, post_inserts = zip(*(branch.to_python() for branch in self.branches))
+        pre_insert = "\n".join(pre_inserts)
+        post_insert = "\n".join(post_inserts)
+        return pre_insert, "\n".join(branches), post_insert
 
     @classmethod
     def from_stream(

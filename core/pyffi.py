@@ -1,10 +1,11 @@
+from typing import Callable, Optional
+
 import core.extern_python as extern_python
-from core.interpreter_types import Object, DType
+from core.interpreter_types import DType, Object
 import core.interpreter_vm as lcaml_vm
+import core.lcaml_expression as lcaml_expression
 import core.parser_types as parser_types
 import core.token_type as token_type
-import core.lcaml_expression as lcaml_expression
-from typing import Callable, Optional
 
 
 def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
@@ -93,7 +94,8 @@ def interface(
     _func=None,
     interpreter_vm=None,
     name: str = "PyFFI_Interface",
-    python_template: Optional[str] = None,
+    python_funcname: Optional[str] = None,
+    python_import: Optional[str] = None,
 ) -> Callable:
     """
     A high-level interface for functions that take a list of arguments with python object types and return a python object.
@@ -112,8 +114,11 @@ def interface(
 
     """
     # NOTE: lcaml doesn't have keyword arguments, so we ignore them here
+    print("outer dec", python_funcname)
 
     def decorator(func):
+        print("inner dec", python_funcname)
+
         class Wrapper(extern_python.ExternPython):
             @staticmethod
             def execute(context, args):
@@ -124,13 +129,26 @@ def interface(
             def __str__(self):
                 return name
 
+            def to_python(self) -> tuple[str, str, str]:
+                # TODO
+                if python_funcname is None:
+                    python_funcname = name
+                if python_import is None:
+                    import_stmt = ""
+                else:
+                    import_stmt = f"import {python_import} as {python_funcname}"
+                return import_stmt, python_funcname, ""
+
         return Wrapper()
 
     return decorator if _func is None else decorator(_func)
 
 
 def raw(
-    _func=None, name: str = "PyFFI_Raw", python_template: Optional[str] = None
+    _func=None,
+    name: str = "PyFFI_Raw",
+    python_funcname: Optional[str] = None,
+    python_import: Optional[str] = None,
 ) -> Callable:
     """
     A raw interface is a function that takes a context and a list of arguments with lcaml object types.
@@ -155,6 +173,15 @@ def raw(
 
             def __str__(self):
                 return name
+
+            def to_python(self) -> tuple[str, str, str]:
+                if python_funcname is None:
+                    python_funcname = name
+                if python_import is None:
+                    import_stmt = ""
+                else:
+                    import_stmt = f"import {python_import} as {python_funcname}"
+                return import_stmt, python_funcname, ""
 
         return Wrapper()
 
