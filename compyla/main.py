@@ -4,9 +4,13 @@ import warnings
 import os
 
 
-# TODO change working dir to lcaml_py dir
 # TODO replace usages of lcaml builtins with calls to lpy_runtime functions
-# TODO find all imports and auto-compile them?
+# TODO support import and import_glob better:
+# - currently, if import is referenced via a variable and not import builtin directly, it will not work
+# - import_glob is not supported at all
+# TODO support automatic detection and compilation of dependencies
+# TODO add mapping from lcaml builtins to python lcaml runtime functions
+# TODO figure out how to transpile __extern_py accesses
 
 
 if os.path.split(sys.argv[0])[1] != "__compyla_main.py":
@@ -18,12 +22,12 @@ if os.path.split(sys.argv[0])[1] != "__compyla_main.py":
     with open(new_fp, "w") as file:
         file.write(code)
     warnings.warn("copied file to __compyla_main.py")
-    subprocess.run(["python", new_fp])
+    subprocess.run(f"cd {super_path} && python {new_fp}")
     sys.exit()
 
 from core.lcaml_lexer import Lexer as LCamlLexer, Syntax
 from core.lcaml_parser import Parser as LCamlParser
-from core.lcaml_utils import expect_only_expression
+from core.lcaml_utils import expect_only_expression, indent
 
 
 DUMP_TO_FILE = False
@@ -39,7 +43,12 @@ def main():
     syntax = Syntax()
     tokens = LCamlLexer(lcaml_code, syntax)()
     ast = LCamlParser(tokens, syntax)()
-    python_code = lpy_runtime + "\n\n" + expect_only_expression(ast.to_python())
+    python_code = (
+        "def module():\n"
+        + indent(lpy_runtime + "\n" + expect_only_expression(ast.to_python()))
+        + '\nif __name__ == "__main__":\n'
+        + indent("module()")
+    )
     python_code = "\n".join(
         filter(lambda x: bool(x.rstrip()), python_code.split("\n"))
     )  # remove empty lines

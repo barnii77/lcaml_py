@@ -2,6 +2,7 @@ import core.lcaml_parser as lcaml_parser
 import core.parser_types as parser_types
 import core.interpreter_vm as interpreter_vm_mod
 import core.extern_python as extern_python
+import core.lcaml_builtins as lcaml_builtins
 
 from core.resolvable import Resolvable
 from core.ast_related import AstRelated
@@ -463,7 +464,6 @@ class Table(AstRelated, Resolvable, Gettable):
         return f"Table({self.fields})"
 
     def to_python(self):
-        # TODO
         keys = self.fields.keys()
         pre_inserts, exprs, post_inserts = zip(
             *[value.to_python() for value in self.fields.values()]
@@ -472,7 +472,9 @@ class Table(AstRelated, Resolvable, Gettable):
         post_insert = "\n".join(post_inserts)
         return (
             pre_insert,
-            "{" + ", ".join(key + ": " + expr for key, expr in zip(keys, exprs)) + "}",
+            "{"
+            + ", ".join(f'"{key}": ' + expr for key, expr in zip(keys, exprs))
+            + "}",
             post_insert,
         )
 
@@ -573,7 +575,7 @@ class FieldAccess(AstRelated, Resolvable):
     def to_python(self) -> tuple[str, str, str]:
         return (
             "",
-            f"{expect_only_expression(self.object.to_python())}[{expect_only_expression(self.field.to_python())}]",
+            f'{expect_only_expression(self.object.to_python())}["{expect_only_expression(self.field.to_python())}"]',
             "",
         )
 
@@ -629,13 +631,34 @@ class FunctionCall(AstRelated, Resolvable):
         pre_insert = "\n".join((f_pre_insert, *arg_pre_inserts))
         post_insert = "\n".join((f_post_insert, *arg_post_inserts))
 
+        if f_expr == lcaml_builtins.IMPORT_FN_NAME:
+            # imports handled using import statement
+            if len(arg_exprs) not in (1, 2):
+                raise ValueError(
+                    f"import takes 1 argument + 1 optional one: import_path (string), [syntax (string)]. Got {len(arg_exprs)} arguments."
+                )
+            import_path = arg_exprs[0].replace('"', "").replace("'", "")
+            import_path_wo_ext = ".".join(import_path.split(".")[:-1])
+            import_path_py = filter(lambda x: bool(x), import_path_wo_ext.split("/"))
+            ident = get_unique_name()
+            pre_insert = pre_insert + f"\nimport {import_path_py} as {ident}"
+            f_expr = f"{ident}.module()"
+        elif f_expr == lcaml_builtins.IMPORT_GLOB_FN_NAME:
+            # TODO: implement import_glob
+            raise ValueError(
+                "import_glob is not supported yet for compilation (requires auto-compilation of external module, not yet implemented). Please contact developer (barnii77 on github)."
+            )
+        else:
+            f_expr = (
+                "("
+                + f_expr
+                + ")"
+                + "".join("(" + arg_expr + ")" for arg_expr in arg_exprs)
+            )
         # NOTE: this calling method might seem weird, but for the sake of currying, functions are transpiled as lambda chains and each arg needs to be provided individually
         return (
             pre_insert,
-            "("
-            + f_expr
-            + ")"
-            + "".join("(" + arg_expr + ")" for arg_expr in arg_exprs),
+            f_expr,
             post_insert,
         )
 

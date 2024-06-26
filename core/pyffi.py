@@ -94,8 +94,6 @@ def interface(
     _func=None,
     interpreter_vm=None,
     name: str = "PyFFI_Interface",
-    python_funcname: Optional[str] = None,
-    python_import: Optional[str] = None,
 ) -> Callable:
     """
     A high-level interface for functions that take a list of arguments with python object types and return a python object.
@@ -114,11 +112,8 @@ def interface(
 
     """
     # NOTE: lcaml doesn't have keyword arguments, so we ignore them here
-    print("outer dec", python_funcname)
 
     def decorator(func):
-        print("inner dec", python_funcname)
-
         class Wrapper(extern_python.ExternPython):
             @staticmethod
             def execute(context, args):
@@ -129,16 +124,6 @@ def interface(
             def __str__(self):
                 return name
 
-            def to_python(self) -> tuple[str, str, str]:
-                # TODO
-                if python_funcname is None:
-                    python_funcname = name
-                if python_import is None:
-                    import_stmt = ""
-                else:
-                    import_stmt = f"import {python_import} as {python_funcname}"
-                return import_stmt, python_funcname, ""
-
         return Wrapper()
 
     return decorator if _func is None else decorator(_func)
@@ -147,8 +132,6 @@ def interface(
 def raw(
     _func=None,
     name: str = "PyFFI_Raw",
-    python_funcname: Optional[str] = None,
-    python_import: Optional[str] = None,
 ) -> Callable:
     """
     A raw interface is a function that takes a context and a list of arguments with lcaml object types.
@@ -173,15 +156,6 @@ def raw(
 
             def __str__(self):
                 return name
-
-            def to_python(self) -> tuple[str, str, str]:
-                if python_funcname is None:
-                    python_funcname = name
-                if python_import is None:
-                    import_stmt = ""
-                else:
-                    import_stmt = f"import {python_import} as {python_funcname}"
-                return import_stmt, python_funcname, ""
 
         return Wrapper()
 

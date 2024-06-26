@@ -22,6 +22,10 @@ So, to summarize
 To use the LCaml-to-Python compiler (that transpiles to python), use `python compyla/main.py program.lml other_file.lml third_file.lml -s syntax.json`, where the -s argument is optional.
 The compiler will create a build folder if one doesn't already exist, remove any files potentially in there (rm -rf build/*) and dump in all lcaml files with the same name (but .py extension). It will also put a _lpy_runtime.py file there, which is a collection of functions that are automatically imported by every file which are used to emulate the behaviour of some lcaml builtins that cannot be statically transpiled to python (because they behave differently depending on datatype and would require different python code depending on types, e.g. `set` and `get`).
 
+## Differences
+- If you are using the compiler, the `import` builtin behaves like a keyword (reassign will lead to strange crashes) whereas if you are using the interpreter, it behaves like a normal function.
+- The `import_glob` builtin is currently not supported in the compiler
+
 # Syntax file format
 The syntax json file format is the following:
 ```json
