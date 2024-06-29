@@ -96,6 +96,33 @@ def l_set(context, args):
     return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
+@pyffi.raw(name="list")
+def l_list(context, args):
+    if len(args) != 1:
+        raise ValueError("list takes 1 argument: thing")
+    if args[0].type not in (
+        interpreter_types.DType.LIST,
+        interpreter_types.DType.STRUCT_TYPE,
+        interpreter_types.DType.STRING,
+    ):
+        raise TypeError("argument 1 (iter) must be of type list, struct_type, string")
+    if args[0].type == interpreter_types.DType.LIST:
+        return args[0]
+    elif args[0].type in (
+        interpreter_types.DType.STRING,
+        interpreter_types.DType.STRUCT_TYPE,
+    ):
+        return interpreter_types.Object(
+            interpreter_types.DType.LIST, list(args[0].value.value)
+        )
+    return interpreter_types.Object(interpreter_types.DType.UNIT, None)
+
+
+@pyffi.interface(name="join")
+def l_join(list_of_strings: list[str], join_elem: str):
+    return join_elem.join(list_of_strings)
+
+
 @pyffi.raw(name="get")
 def l_get(context, args):
     if len(args) != 2:
@@ -286,6 +313,8 @@ LML_EXPORTS = {
     "string": l_string,
     "bool": l_bool,
     "set": l_set,
+    "list": l_list,
+    "join": l_join
     "get": l_get,
     "keys": l_keys,
     "values": l_values,

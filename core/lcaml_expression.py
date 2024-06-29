@@ -639,7 +639,7 @@ class FunctionCall(AstRelated, Resolvable):
                 )
             import_path = arg_exprs[0].replace('"', "").replace("'", "")
             import_path_wo_ext = ".".join(import_path.split(".")[:-1])
-            import_path_py = filter(lambda x: bool(x), import_path_wo_ext.split("/"))
+            import_path_py = ".".join(filter(lambda x: bool(x), import_path_wo_ext.split("/")))
             ident = get_unique_name()
             pre_insert = pre_insert + f"\nimport {import_path_py} as {ident}"
             f_expr = f"{ident}.module()"
@@ -790,6 +790,10 @@ class Constant(AstRelated, Resolvable):
     def to_python(self):
         if self.value.type == DType.STRING:
             value = '"' + str(self.value.value) + '"'
+        elif self.value.type == DType.UNIT:
+            value = "None"
+        elif self.value.type == DType.BOOL:
+            value = str(self.value.value).title()
         else:
             value = str(self.value.value)
         return "", value, ""

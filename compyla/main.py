@@ -22,7 +22,7 @@ if os.path.split(sys.argv[0])[1] != "__compyla_main.py":
     with open(new_fp, "w") as file:
         file.write(code)
     warnings.warn("copied file to __compyla_main.py")
-    subprocess.run(f"cd {super_path} && python {new_fp}")
+    subprocess.run(f"cd {super_path} && python {new_fp}", shell=True)
     sys.exit()
 
 from core.lcaml_lexer import Lexer as LCamlLexer, Syntax
@@ -30,22 +30,23 @@ from core.lcaml_parser import Parser as LCamlParser
 from core.lcaml_utils import expect_only_expression, indent
 
 
-DUMP_TO_FILE = False
+DUMP_TO_FILE = True
 
 
 def main():
     # FIXME this is hacky for debugging
-    with open("__test.lml", "r") as file:
+    super_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+    with open(os.path.join(super_path, "__test.lml"), "r") as file:
         lcaml_code = file.read()
-    super_path = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
     with open(os.path.join(super_path, "core", "lpy_runtime.py")) as runtime:
         lpy_runtime = runtime.read() + "\n\n"
     syntax = Syntax()
     tokens = LCamlLexer(lcaml_code, syntax)()
     ast = LCamlParser(tokens, syntax)()
     python_code = (
-        "def module():\n"
-        + indent(lpy_runtime + "\n" + expect_only_expression(ast.to_python()))
+        lpy_runtime + "\n"
+        + "def module():\n"
+        + indent(expect_only_expression(ast.to_python()))
         + '\nif __name__ == "__main__":\n'
         + indent("module()")
     )
@@ -54,7 +55,7 @@ def main():
     )  # remove empty lines
     print(python_code)
     if DUMP_TO_FILE:
-        with open("__test.py", "w") as file:
+        with open(os.path.join(super_path, "__test.py"), "w") as file:
             file.write(python_code)
 
 

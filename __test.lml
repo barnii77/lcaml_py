@@ -10,3 +10,4 @@ if (result == 6) {
   let text = "oh, no!";
 }
 let _ = println result;
+-- let mod = import "module.lml";
