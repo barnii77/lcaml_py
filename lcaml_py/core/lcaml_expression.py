@@ -114,7 +114,7 @@ class Function(AstRelated, Resolvable):
         function_def = (
             f"def {name}("
             + ", ".join(args)
-            + f", {Syntax._this_keyword}):\n{indent(body_block)}\n{name}_self_referral_list = [None]"
+            + f", {Syntax._this_keyword}):\n{indent(body_block)}\n{name}_self_referral_list = [_dc937b59892604f5a86ac969]"  # the random ident here is the runtime ident of python None
         )
         value = (
             "".join(f"lambda {arg}: " for arg in args)

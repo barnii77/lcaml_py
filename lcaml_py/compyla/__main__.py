@@ -1,11 +1,16 @@
-import sys
-import subprocess
-import warnings
-import os
 import argparse
-import autopep8
+import shutil
 import multiprocessing as mp
+import os
+import sys
 from typing import Optional
+
+import autopep8
+
+from lcaml_py.core.lcaml_lexer import Lexer as LCamlLexer, Syntax
+from lcaml_py.core.lcaml_parser import Parser as LCamlParser
+from lcaml_py.core.lcaml_utils import expect_only_expression, indent
+
 
 try:
     import black
@@ -21,23 +26,7 @@ except ImportError:
 # TODO support automatic detection and compilation of dependencies
 
 
-if os.path.split(sys.argv[0])[1] != "__compyla_main.py":
-    with open(sys.argv[0], "r") as this_file:
-        code = this_file.read()
-    super_path = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
-    new_fp = os.path.join(super_path, "__compyla_main.py")
-    print(new_fp)
-    with open(new_fp, "w") as file:
-        file.write(code)
-    warnings.warn("copied file to __compyla_main.py")
-    subprocess.run(f"cd {super_path} && python {new_fp}", shell=True)
-    sys.exit()
-
-from core.lcaml_lexer import Lexer as LCamlLexer, Syntax
-from core.lcaml_parser import Parser as LCamlParser
-from core.lcaml_utils import expect_only_expression, indent
-
-lcaml_module = os.path.dirname(os.path.abspath(sys.argv[0]))
+lcaml_module = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
 lcaml_root = os.path.dirname(lcaml_module)
 with open(os.path.join(lcaml_module, "core", "lpy_runtime.py")) as runtime:
     lpy_runtime = runtime.read()
@@ -105,13 +94,8 @@ def compile_lcaml_io_handled(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("files", nargs="?", required=True, help="File to run")
+    parser.add_argument("files", nargs="+", help="File to run")
     parser.add_argument("-s", "--syntax", default=None, help="Syntax file")
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="If set, print return value of file",
-    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "--format-autopep",
@@ -121,6 +105,7 @@ if __name__ == "__main__":
     group.add_argument(
         "--format",
         action="store_true",
+        dest="format_advanced",
         help="If set, format the generated python code using black if it is installed, otherwise autopep8",
     )
     parser.add_argument(
@@ -131,18 +116,20 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     format_with_black = format_with_black and args.format_advanced
-    format_at_all = args.format_advanced or args.format_simple
+    format_at_all = args.format_advanced or args.format_autopep
     output_formatter = (
         "black" if format_with_black else "autopep8" if format_at_all else None
     )
-    lcaml_module = os.path.dirname(os.path.abspath(sys.argv[0]))
-    lcaml_root = os.path.dirname(lcaml_module)
     build_dir = os.path.join(lcaml_root, "build")
     if not os.path.exists(build_dir):
         os.mkdir(build_dir)
     build_dir = os.path.join(build_dir, "compiled_lcaml")
-    if not os.path.exists(build_dir):
-        os.mkdir(build_dir)
+    shutil.rmtree(build_dir)
+    os.mkdir(build_dir)
+
+    for file in args.files:
+        if not os.path.exists(os.path.abspath(file)):
+            raise FileNotFoundError(f"file {file} does not exist")
     if args.n_parallel and args.n_parallel > 1 and len(args.files) > 1:
         with mp.Pool(args.n_parallel) as pool:
             pool.starmap(
