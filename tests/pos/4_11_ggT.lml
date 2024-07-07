@@ -12,7 +12,7 @@ let input_int = |prompt| {
     return number;
 };
 
-let ggT_classic = |a, b| {
+let ggT_classic = |a b| {
     if (a < 1 || b < 1) {
         return ();
     };
@@ -25,7 +25,7 @@ let ggT_classic = |a, b| {
     };
 };
 
-let ggT_modern = |a, b| {
+let ggT_modern = |a b| {
     if (a < 1 || b < 1) {
         return ();
     };

@@ -24,8 +24,9 @@ def append_to_list(lst: list, item):
     return lst
 
 
-LML_EXPORTS = {
-    "test_pyffi": test_pyffi,
-    "test_pyffi_ext": test_pyffi_ext,
-    "append_to_list": append_to_list,
-}
+def module():
+    return {
+        "test_pyffi": test_pyffi,
+        "test_pyffi_ext": test_pyffi_ext,
+        "append_to_list": append_to_list,
+    }

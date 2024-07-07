@@ -12,7 +12,7 @@ let input_int = |prompt| {
     return number;
 };
 
-let ggt = |a, b| {
+let ggt = |a b| {
     if (a < 1 || b < 1) {
         return ();
     };
@@ -23,7 +23,7 @@ let ggt = |a, b| {
     return b;
 };
 
-let kgv = |a, b| {
+let kgv = |a b| {
   if (a < 1 || b < 1) {
     return ();
   };

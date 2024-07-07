@@ -6,7 +6,7 @@ let factorial = |n| {
   };
 };
 
-let power = |x, n| {
+let power = |x n| {
   if (n == 0) {
     return 1;
   } else {

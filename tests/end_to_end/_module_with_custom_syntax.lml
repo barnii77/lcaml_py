@@ -1,4 +1,4 @@
-let min = |a, b| {
+let min = |a b| {
   fi(a < b) {
     ret a;
   };
