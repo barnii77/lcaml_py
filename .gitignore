@@ -8,3 +8,4 @@
 ./lcaml_py/interpreter/__pycache__/*
 ./tests/__pycache__/*
 ./analysis/fuse/__pycache__/*
+./build/*
