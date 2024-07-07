@@ -15,6 +15,7 @@ class Syntax:
     """
     This class defines the syntax of the language by containing named regex patterns.
     """
+    _this_keyword = r"__this"
 
     def __init__(self, **kwargs):
         # non-syntax-pattern stuff
@@ -29,7 +30,6 @@ class Syntax:
         self.if_keyword = r"if"
         self.else_if_keyword = r"else\s+if"
         self.else_keyword = r"else"
-        self._this_keyword = r"__this"
 
         # types
         self.unit_type = r"\(\)"
@@ -94,7 +94,8 @@ class Syntax:
 
         """
         for k, v in kwargs.items():
-            setattr(self, k, v)
+            if k != "_this_keyword":
+                setattr(self, k, v)
 
     def patterns(self):
         """

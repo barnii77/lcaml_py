@@ -111,18 +111,22 @@ class Function(AstRelated, Resolvable):
         name = get_unique_name()
         args = [expect_only_expression(arg.to_python()) for arg in self.arguments]
         body_pre_insert, body_block, body_post_insert = self.body.to_python()
-        function_def = "def " + name + "(" + ", ".join(args) + "):" + indent(body_block)
+        function_def = (
+            f"def {name}("
+            + ", ".join(args)
+            + f", {Syntax._this_keyword}):\n{indent(body_block)}\n{name}_self_referral_list = [None]"
+        )
         value = (
             "".join(f"lambda {arg}: " for arg in args)
-            + name
-            + "("
+            + f"{name}("
             + ", ".join(args)
-            + ")"
+            + f", {name}_self_referral_list[0])"
         )
+        populate_self_referral_list = f"{name}_self_referral_list[0] = {value}"
         return (
             body_pre_insert + "\n" + function_def + "\n" + body_post_insert,
             value,
-            "",
+            populate_self_referral_list,
         )
 
     def resolve(self, context: Context) -> Object:
@@ -627,7 +631,7 @@ class FunctionCall(AstRelated, Resolvable):
         arg_pre_inserts, arg_exprs, arg_post_inserts = zip(
             *[arg.to_python() for arg in self.arguments]
         )
-        pre_insert = "\n".join((f_pre_insert, *arg_pre_inserts))
+        pre_insert = "\n".join((*arg_pre_inserts, f_pre_insert))
         post_insert = "\n".join((f_post_insert, *arg_post_inserts))
 
         # NOTE: this calling method might seem weird, but for the sake of easy currying compilation, functions are transpiled as lambda chains and each arg needs to be provided individually
