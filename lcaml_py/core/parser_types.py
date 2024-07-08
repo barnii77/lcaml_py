@@ -43,6 +43,7 @@ class AstStatementType:
     ASSIGNMENT = 0
     RETURN = 1
     CONTROL_FLOW = 2
+    EXPRESSION = 3
 
 
 class AstAssignment(AstRelated):
@@ -127,7 +128,9 @@ class AstControlFlow(AstRelated):
         return "AstControlFlow(" + str(self.branches) + ")"
 
     def to_python(self):
-        pre_inserts, branches, post_inserts = zip(*(branch.to_python() for branch in self.branches))
+        pre_inserts, branches, post_inserts = zip(
+            *(branch.to_python() for branch in self.branches)
+        )
         pre_insert = "\n".join(pre_inserts)
         post_insert = "\n".join(post_inserts)
         return pre_insert, "\n".join(branches), post_insert
@@ -234,3 +237,14 @@ class AstControlFlow(AstRelated):
         branches.append(branch)
 
         return cls(branches), stream, all_symbols_used
+
+
+class AstExpressionStatement(AstRelated):
+    def __init__(self, expression):
+        self.expression = expression
+
+    def __str__(self):
+        return f"AstExpressionStatement({self.expression})"
+
+    def to_python(self):
+        return "", "\n".join(self.expression.to_python()), ""

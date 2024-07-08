@@ -51,5 +51,8 @@ class InterpreterVM:
                             return
                         break
 
+            elif statement.type == parser_types.AstStatementType.EXPRESSION:
+                statement.value.expression.resolve(self.variables)
+
             else:
-                raise ValueError("Unknown statement type " + statement.type)
+                raise ValueError(f"Unknown statement type {statement.type}")

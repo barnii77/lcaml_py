@@ -124,7 +124,8 @@ if __name__ == "__main__":
     if not os.path.exists(build_dir):
         os.mkdir(build_dir)
     build_dir = os.path.join(build_dir, "compiled_lcaml")
-    shutil.rmtree(build_dir)
+    if os.path.exists(build_dir):
+        shutil.rmtree(build_dir)
     os.mkdir(build_dir)
 
     for file in args.files:

@@ -42,7 +42,11 @@ class AstStatement(AstRelated):
     def __init__(
         self,
         type: int,
-        value: Union['parser_types.AstAssignment', 'parser_types.AstReturn'],
+        value: Union[
+            "parser_types.AstAssignment",
+            "parser_types.AstReturn",
+            "parser_types.AstExpressionStatement",
+        ],
     ):
         self.type = type
         self.value = value
@@ -53,12 +57,41 @@ class AstStatement(AstRelated):
     def to_python(self):
         if self.type == parser_types.AstStatementType.ASSIGNMENT:
             id_pre_insert, id_expr, id_post_insert = self.value.identifier.to_python()
-            value_pre_insert, value_expr, value_post_insert = self.value.value.to_python()
-            return "", "\n".join((id_pre_insert, value_pre_insert, id_expr + " = " + value_expr, id_post_insert, value_post_insert)), ""
+            (
+                value_pre_insert,
+                value_expr,
+                value_post_insert,
+            ) = self.value.value.to_python()
+            return (
+                "",
+                "\n".join(
+                    (
+                        id_pre_insert,
+                        value_pre_insert,
+                        id_expr + " = " + value_expr,
+                        id_post_insert,
+                        value_post_insert,
+                    )
+                ),
+                "",
+            )
         elif self.type == parser_types.AstStatementType.RETURN:
-            value_pre_insert, value_expr, value_post_insert = self.value.value.to_python()
-            return "", "\n".join((value_pre_insert, "return " + value_expr, value_post_insert)), ""
-        elif self.type == parser_types.AstStatementType.CONTROL_FLOW:
+            (
+                value_pre_insert,
+                value_expr,
+                value_post_insert,
+            ) = self.value.value.to_python()
+            return (
+                "",
+                "\n".join(
+                    (value_pre_insert, "return " + value_expr, value_post_insert)
+                ),
+                "",
+            )
+        elif self.type in (
+            parser_types.AstStatementType.CONTROL_FLOW,
+            parser_types.AstStatementType.EXPRESSION,
+        ):
             return "", "\n".join(self.value.to_python()), ""
         else:
             raise ValueError("Invalid statement type")
@@ -80,7 +113,13 @@ class Ast(AstRelated):
         return "Ast(" + str(self.statements) + ")"
 
     def to_python(self):
-        return "", "\n".join("\n".join(statement.to_python()) for statement in self.statements), ""
+        return (
+            "",
+            "\n".join(
+                "\n".join(statement.to_python()) for statement in self.statements
+            ),
+            "",
+        )
 
     @classmethod
     def from_stream(cls, stream: TokenStream, syntax: Syntax = Syntax()):
@@ -136,7 +175,19 @@ class Ast(AstRelated):
                 elif token.type == TokenKind.SEMICOLON:
                     pass  # semicolon is always ok
                 else:
-                    raise ParseError("Expected let or end of file")
+                    (
+                        expression,
+                        stream,
+                        symbols_used,
+                    ) = lcaml_expression.Expression.from_stream([token] + stream, syntax)
+                    all_symbols_used.update(symbols_used)
+                    expr_stmt = parser_types.AstExpressionStatement(expression)
+                    statement = AstStatement(
+                        parser_types.AstStatementType.EXPRESSION, expr_stmt
+                    )
+                    statements.append(statement)
+                    state = ParseState.ExpectSemicolon
+                    # raise ParseError("Expected let, return, if or end of file")
 
             elif state == ParseState.ExpectIdentfier:
                 if token.type == TokenKind.IDENTIFIER:
