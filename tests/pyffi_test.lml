@@ -1,10 +1,10 @@
 let pymod = import_py "tests/pyffi_module.py";
 let x = 1;
-let y = test_pyffi x;
-let ext_py_fn = test_pyffi_ext ();
-let a = ext_py_fn x;
+let y = (pymod.test_pyffi) x;
+let ext_py_fn = (pymod.test_pyffi_ext) ();
+let a = (pymod.test_pyffi) x;
 let _ = println "y = " y ", a = " a;
 let lst = [1];
-let lst = append_to_list lst 2;
-let lst = append_to_list lst 3;
+let lst = (pymod.append_to_list) lst 2;
+let lst = (pymod.append_to_list) lst 3;
 return lst;
