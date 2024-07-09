@@ -63,7 +63,26 @@ class AstAssignment(AstRelated):
         return "AstAssignment(" + str(self.identifier) + ", " + str(self.value) + ")"
 
     def to_python(self):
-        return "", self.identifier.name + " = " + self.value.to_python(), ""
+        id_pre_insert, id_expr, id_post_insert = self.identifier.to_python()
+        (
+            value_pre_insert,
+            value_expr,
+            value_post_insert,
+        ) = self.value.to_python()
+        id_expr = f'_ad7aaf167f237a94dc2c3ad2["{id_expr}"]'
+        return (
+            "",
+            "\n".join(
+                (
+                    id_pre_insert,
+                    value_pre_insert,
+                    id_expr + " = " + value_expr,
+                    id_post_insert,
+                    value_post_insert,
+                )
+            ),
+            "",
+        )
 
 
 class AstReturn(AstRelated):
@@ -81,7 +100,16 @@ class AstReturn(AstRelated):
         return "AstReturn(" + str(self.value) + ")"
 
     def to_python(self):
-        return "", "return " + self.value.to_python(), ""
+        (
+            value_pre_insert,
+            value_expr,
+            value_post_insert,
+        ) = self.value.to_python()
+        return (
+            "",
+            "\n".join((value_pre_insert, "return " + value_expr, value_post_insert)),
+            "",
+        )
 
 
 class AstControlFlowBranch(AstRelated):
@@ -133,7 +161,8 @@ class AstControlFlow(AstRelated):
         )
         pre_insert = "\n".join(pre_inserts)
         post_insert = "\n".join(post_inserts)
-        return pre_insert, "\n".join(branches), post_insert
+        insert = pre_insert + "\n" + "\n".join(branches) + "\n" + post_insert
+        return "", insert, ""
 
     @classmethod
     def from_stream(

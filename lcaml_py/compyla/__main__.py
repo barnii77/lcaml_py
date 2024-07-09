@@ -8,7 +8,7 @@ from typing import Optional
 from lcaml_py.core.lcaml_lexer import Lexer as LCamlLexer, Syntax
 from lcaml_py.core.lcaml_parser import Parser as LCamlParser
 from lcaml_py.core.lcaml_utils import expect_only_expression, indent
-from lcaml_py.core import lcaml_expression
+from lcaml_py.core import lcaml_expression, lcaml_utils
 
 
 format_with_black = False
@@ -59,12 +59,16 @@ def compile_lcaml(
         syntax = Syntax()
     tokens = LCamlLexer(code, syntax)()
     ast = LCamlParser(tokens, syntax)()
-    template_params = f"COMPILE_WITH_CONTEXT_LEAKING = {lcaml_expression.COMPILE_WITH_CONTEXT_LEAKING}\n"
+    template_params = (
+        f"COMPILE_WITH_CONTEXT_LEAKING = {lcaml_expression.COMPILE_WITH_CONTEXT_LEAKING}\n"
+        f"LCAML_RECURSION_LIMIT = {lcaml_utils.LCAML_RECURSION_LIMIT}\n"
+    )
+    generated_code = expect_only_expression(ast.to_python())
     python_code = (
         template_params
         + lpy_runtime
         + "\ndef module():\n"
-        + indent(expect_only_expression(ast.to_python()))
+        + indent(generated_code)
         + '\nif __name__ == "__main__":\n'
         + indent("module()")
     )

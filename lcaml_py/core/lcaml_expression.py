@@ -113,17 +113,25 @@ class Function(AstRelated, Resolvable):
         args = [expect_only_expression(arg.to_python()) for arg in self.arguments]
         body_pre_insert, body_block, body_post_insert = self.body.to_python()
         if COMPILE_WITH_CONTEXT_LEAKING:
-            body_block = f"for k, v in _ad7aaf167f237a94dc2c3ad2.items(): locals()[k] = v\n\n{body_block}"
+            body_block = (
+                "\n".join(f'_ad7aaf167f237a94dc2c3ad2["{arg}"] = {arg}' for arg in args + [Syntax._this_keyword])
+                + "\n"
+                + body_block
+            )
         function_def = (
-            f"def {name}("
-            + ("_ad7aaf167f237a94dc2c3ad2, " if COMPILE_WITH_CONTEXT_LEAKING else "")
+            f"def {name}(_ad7aaf167f237a94dc2c3ad2, "
             + ", ".join(args)
-            + f", {Syntax._this_keyword}):\n{indent(body_block)}\n{name}_self_referral_list = [_dc937b59892604f5a86ac969]"  # the random ident here is the runtime ident of python None
+            + f", {Syntax._this_keyword}):\n{indent(body_block)}\n{name}_self_referral_list = [0]"
         )
         value = (
-            "lambda "
+            "lambda _ad7aaf167f237a94dc2c3ad2, "
             + ", ".join(arg for arg in args)
             + f": {name}("
+            + (
+                "_ad7aaf167f237a94dc2c3ad2.copy(), "
+                if COMPILE_WITH_CONTEXT_LEAKING
+                else "{}, "
+            )
             + ", ".join(args)
             + f", {name}_self_referral_list[0])"
         )
@@ -641,7 +649,11 @@ class FunctionCall(AstRelated, Resolvable):
 
         f_expr = (
             f"({f_expr} if _4a11dbf5131539804348ceb5({f_expr}, _8f43c264c756af91f5eff200) else _8f43c264c756af91f5eff200({f_expr}))("
-            + ("{**globals(), **locals()}, " if COMPILE_WITH_CONTEXT_LEAKING else "")
+            + (
+                "_ad7aaf167f237a94dc2c3ad2, "
+                if COMPILE_WITH_CONTEXT_LEAKING
+                else "{}, "
+            )
             + ", ".join(arg_expr for arg_expr in arg_exprs)
             + ")"
         )
@@ -701,7 +713,7 @@ class FunctionCall(AstRelated, Resolvable):
                 )
                 interpreter_vm.execute()
                 result = interpreter_vm.return_value
-                return result.resolve(local_context) if result is not None else None
+                return result
 
         elif isinstance(function, extern_python.ExternPython):
             return function.execute(context.copy(), resolved_args)
@@ -725,7 +737,8 @@ class Variable(AstRelated, Resolvable):
         return "Variable(" + str(self.identifier) + ")"
 
     def to_python(self):
-        return "", expect_only_expression(self.identifier.to_python()), ""
+        ident = expect_only_expression(self.identifier.to_python())
+        return "", f'_ad7aaf167f237a94dc2c3ad2["{ident}"]', ""
 
     def resolve(self, context: Context):
         result = context.get(self.identifier)

@@ -3,7 +3,7 @@ from typing import List
 from .token_type import TokenKind, Token
 
 
-LCAML_RECURSION_LIMIT = 10**7
+LCAML_RECURSION_LIMIT = 2**31 - 1
 _uuid = 0
 NAME_GEN_N_HASH_DIGITS = 24
 TokenStream = List[Token]

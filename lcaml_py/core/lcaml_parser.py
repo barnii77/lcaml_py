@@ -55,46 +55,7 @@ class AstStatement(AstRelated):
         return "AstStatement(" + str(self.type) + ", " + str(self.value) + ")"
 
     def to_python(self):
-        if self.type == parser_types.AstStatementType.ASSIGNMENT:
-            id_pre_insert, id_expr, id_post_insert = self.value.identifier.to_python()
-            (
-                value_pre_insert,
-                value_expr,
-                value_post_insert,
-            ) = self.value.value.to_python()
-            return (
-                "",
-                "\n".join(
-                    (
-                        id_pre_insert,
-                        value_pre_insert,
-                        id_expr + " = " + value_expr,
-                        id_post_insert,
-                        value_post_insert,
-                    )
-                ),
-                "",
-            )
-        elif self.type == parser_types.AstStatementType.RETURN:
-            (
-                value_pre_insert,
-                value_expr,
-                value_post_insert,
-            ) = self.value.value.to_python()
-            return (
-                "",
-                "\n".join(
-                    (value_pre_insert, "return " + value_expr, value_post_insert)
-                ),
-                "",
-            )
-        elif self.type in (
-            parser_types.AstStatementType.CONTROL_FLOW,
-            parser_types.AstStatementType.EXPRESSION,
-        ):
-            return "", "\n".join(self.value.to_python()), ""
-        else:
-            raise ValueError("Invalid statement type")
+        return self.value.to_python()
 
 
 class Ast(AstRelated):

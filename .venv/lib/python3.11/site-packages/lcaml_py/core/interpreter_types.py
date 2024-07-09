@@ -495,6 +495,9 @@ class Object(Resolvable):
         self.type = type
         self.value = value
 
+    def resolve(self, context):
+        return self.value
+
     def __hash__(self):
         return hash((self.type, self.value))
 

@@ -3,8 +3,9 @@
 from inspect import signature as _1a2fc26dc7ea5a2a4748b7cb
 import sys as _518b67e652531c5fe7e25d6b
 import os as _840a8dcfeae95966a870b0b5
-
 from lcaml_py.core import pyffi
+
+_518b67e652531c5fe7e25d6b.setrecursionlimit(LCAML_RECURSION_LIMIT)
 pyffi.COMPILE_WITH_CONTEXT_LEAKING = COMPILE_WITH_CONTEXT_LEAKING
 
 _c96c6d5be8d08a12e7b5cdc1 = input
@@ -50,7 +51,9 @@ class _8f43c264c756af91f5eff200:
         if hasattr(func, "_e6c50da35e8f9284c183e69b"):
             self.n_args = 0
         else:
-            self.n_args = len(_1a2fc26dc7ea5a2a4748b7cb(func).parameters.keys())
+            self.n_args = _71fa9faaa6f884aa11f4cea2(
+                _1a2fc26dc7ea5a2a4748b7cb(func).parameters.keys()
+            )
         self.curried_args = []
 
     def __call__(self, *args):
@@ -60,11 +63,11 @@ class _8f43c264c756af91f5eff200:
         assert (
             self.n_args > 0
         ), "invalid compile output; bug in compyla... please raise issue in https://github.com/barnii77/lcaml_py"
-        result = None
+        result = _dc937b59892604f5a86ac969
         for i, arg in enumerate(args):
             result = self
             self.curried_args.append(arg)
-            if len(self.curried_args) == self.n_args:
+            if _71fa9faaa6f884aa11f4cea2(self.curried_args) == self.n_args:
                 # call function and make the result the new function object
                 out = self.func(*self.curried_args)
                 if _4a11dbf5131539804348ceb5(
@@ -75,7 +78,7 @@ class _8f43c264c756af91f5eff200:
                     self.curried_args = out.curried_args
                 elif callable(out):
                     self.__init__(out)
-                elif i != len(args) - 1:
+                elif i != _71fa9faaa6f884aa11f4cea2(args) - 1:
                     raise TypeError(f"Cannot call object {out} of type {type(out)}")
                 result = out
         return result
@@ -233,3 +236,6 @@ def import_py(path: str):
 @builtin
 def exit(code):
     _518b67e652531c5fe7e25d6b.exit(code)
+
+
+_ad7aaf167f237a94dc2c3ad2 = globals()
