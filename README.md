@@ -13,13 +13,13 @@ The arch nemesis of the rust foundation, the LCaml foundation can be found here:
 
 # Usage
 ## Interpreter
-To run an lcaml program, just run `python main.py lcaml_file.lml` in your terminal. This assumes you have python installed. The project does not have any requirements that are not part of the python standard library, therefore there is no requirements.txt file.
+To run an lcaml program, just run `python -m lcaml_py.interpreter lcaml_file.lml` in your terminal. This assumes you have python installed. The project does not have any requirements that are not part of the python standard library, therefore there is no requirements.txt file.
 Optionally, you can also provide a second filepath to a json file. This file will be used to overwrite the syntax of the program you are writing. Notice that if you import any files in the file you are executing, you will need to explicitly specify the syntax file to use for the imported file as a second argument to the import builtin. This argument is optional and the interpreter will, if not provided, use the default lcaml syntax.
 So, to summarize
-`python interpreter/main.py program.lml -s syntax.json` to run a program using the lcaml interpreter. Note that the -s argument is optional.
+`python -m lcaml_py.interpreter program.lml -s syntax.json` to run a program using the lcaml interpreter. Note that the -s argument is optional.
 
 ## LTP-Compiler
-To use the LCaml-to-Python compiler (that transpiles to python), use `python compyla/main.py program.lml other_file.lml third_file.lml -s syntax.json`, where the -s argument is optional.
+To use the LCaml-to-Python compiler (that transpiles to python), use `python -m lcaml_py.compyla program.lml other_file.lml third_file.lml -s syntax.json`, where the -s argument is optional.
 The compiler will create a `build/compiled_lcaml` folder if one doesn't already exist, remove any files potentially in there (rm -rf build/compiled_lcaml/*) and dump in all lcaml files with the same name (but .py extension).
 
 # Syntax file format
@@ -43,14 +43,16 @@ Here are some of the most important ones:
 | else_if_keyword | - | "else\s+if\s" |
 | else_keyword | - | "else\s" |
 
-You can set any value to either a pattern (string) or a list of [pattern (string), group (integer)] where the integer represents what group of the pattern in the string. The group defaults to 0.
+You can set any value to either a pattern (string) or a list of [pattern (string), group (integer)] where the integer represents what regex group of the pattern to pick extract and use as the token value. The group defaults to 0.
 Note that if you provide a list, you have to provide the group. It is only set for you if you only provide a string.
 
 For an **example**, see tests/end_to_end/custom_syntax.json
 
-# Components of the interpreter
-| thing | role |
-|-------|------|
-| Lexer | CODE -> Tokens |
-| Parser | Tokens -> AST |
-| Interpreter | AST -> EXECUTE |
+# Components of the interpreter and compyla
+Code            -> |     |                               |-> |Compyla| -> Emit Python
+Syntax Settings -> |Lexer| -> Tokens -> |Parser| -> AST -|                                                                                    yes  |-> |Type analysis| -> |Compile with LLVM| -> Compiled function -> |Call comp func| -> output -> |Convert to LCaml object| ---|
+                                                         |                                                                                         |        |                   |                                                                                                |
+                                                         |-> |Execution Engine| -> Execute -> ... -> Function call -> Jit Compiler enabled? -------|        |   \*error          |   \*error                         *only simple code can be JIT-compiled, error = uncompilable    |
+                                                                A                                                                                  |       \\/                 \\/                                                                                               |
+                                                                |                                                                             no   |-> |Spawn new execution engine| -> output -----------------------------------------------------------------------------------|
+                                                                |________________________________________________________________________________________________________________________________________________________________________________________________________________|
