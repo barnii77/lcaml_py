@@ -49,10 +49,11 @@ Note that if you provide a list, you have to provide the group. It is only set f
 For an **example**, see tests/end_to_end/custom_syntax.json
 
 # Components of the interpreter and compyla
+(This diagram looks good if you view the raw markdown file... On github, open README.md as a file and click on code in the top left corner of the file viewer)
 Code            -> |     |                               |-> |Compyla| -> Emit Python
 Syntax Settings -> |Lexer| -> Tokens -> |Parser| -> AST -|                                                                                    yes  |-> |Type analysis| -> |Compile with LLVM| -> Compiled function -> |Call comp func| -> output -> |Convert to LCaml object| ---|
                                                          |                                                                                         |        |                   |                                                                                                |
-                                                         |-> |Execution Engine| -> Execute -> ... -> Function call -> Jit Compiler enabled? -------|        |   \*error          |   \*error                         *only simple code can be JIT-compiled, error = uncompilable    |
+                                                         |-> |Execution Engine| -> Execute -> ... -> Function call -> Jit Compiler enabled? -------|        |  \*error          |  \*error                          *only simple code can be JIT-compiled, error = uncompilable  |
                                                                 A                                                                                  |       \\/                 \\/                                                                                               |
                                                                 |                                                                             no   |-> |Spawn new execution engine| -> output -----------------------------------------------------------------------------------|
                                                                 |________________________________________________________________________________________________________________________________________________________________________________________________________________|
