@@ -1,0 +1,9 @@
+let _ = println "hello world";
+println "hello world 2";
+
+let x = 5;
+println x;
+
+if (x > 3) {
+  println (x + 1);
+};

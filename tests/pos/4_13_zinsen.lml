@@ -12,7 +12,7 @@ let input_int = |prompt| {
     return number;
 };
 
-let _f = |money, rate, interest_rate, years| {
+let _f = |money rate interest_rate years| {
   if (years <= 0) {
     return money;
   };

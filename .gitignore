@@ -1,4 +1,11 @@
-./__pycache__/
-./__modules/
-./.venv/
-./.idea/
+./__pycache__/*
+./__modules/*
+./.venv/*
+./.idea/*
+./lcaml_py/__pycache__/*
+./lcaml_py/core/__pycache__/*
+./lcaml_py/compyla/__pycache__/*
+./lcaml_py/interpreter/__pycache__/*
+./tests/__pycache__/*
+./analysis/fuse/__pycache__/*
+./build/*

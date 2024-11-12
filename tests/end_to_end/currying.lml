@@ -1,4 +1,4 @@
-let mult = |a, b| {
+let mult = |a b| {
   return a * b;
 };
 

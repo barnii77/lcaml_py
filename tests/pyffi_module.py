@@ -1,9 +1,14 @@
-import pyffi
+from lcaml_py.core import pyffi
+
+glob_counter = 1
 
 
 @pyffi.interface
 def test_pyffi(n: int):
-    print("wow call to python", n)
+    global glob_counter
+    print("wow call to python with arg", n)
+    print("this was call nr", glob_counter, "to python")
+    glob_counter += 1
     return n + 99
 
 
@@ -24,8 +29,9 @@ def append_to_list(lst: list, item):
     return lst
 
 
-LML_EXPORTS = {
-    "test_pyffi": test_pyffi,
-    "test_pyffi_ext": test_pyffi_ext,
-    "append_to_list": append_to_list,
-}
+def module():
+    return {
+        "test_pyffi": test_pyffi,
+        "test_pyffi_ext": test_pyffi_ext,
+        "append_to_list": append_to_list,
+    }
