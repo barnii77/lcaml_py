@@ -17,10 +17,16 @@ To run an lcaml program, just run `python -m lcaml_py.interpreter lcaml_file.lml
 Optionally, you can also provide a second filepath to a json file. This file will be used to overwrite the syntax of the program you are writing. Notice that if you import any files in the file you are executing, you will need to explicitly specify the syntax file to use for the imported file as a second argument to the import builtin. This argument is optional and the interpreter will, if not provided, use the default lcaml syntax.
 So, to summarize
 `python -m lcaml_py.interpreter program.lml -s syntax.json` to run a program using the lcaml interpreter. Note that the -s argument is optional.
+The interpreter has a built-in debugger (like the breakpoint() function in python) that can be invoked using lcaml's `breakpoint()` builtin.
+It also has proper source tracebacks, which are not available when using the LTP-Compiler
 
 ## LTP-Compiler
 To use the LCaml-to-Python compiler (that transpiles to python), use `python -m lcaml_py.compyla program.lml other_file.lml third_file.lml -s syntax.json`, where the -s argument is optional.
 The compiler will create a `build/compiled_lcaml` folder if one doesn't already exist, remove any files potentially in there (rm -rf build/compiled_lcaml/*) and dump in all lcaml files with the same name (but .py extension).
+
+## JIT-Compiler
+The interpreter also has a built-in JIT compiler. To enable it for any function as the preferred way to execute, run the interpreter with --jit-by-default. To suppress the jit compiler completely, use --suppress-jit. The recommended way to use it though is through the `jit` builtin, which allows you to force jit compilation on functions of your choice and crash the interpreter with appropriate errors when the function fails to jit compile.
+For example: `python -m lcaml_py.interpreter program.lml [--jit-by-default|--suppress-jit]`
 
 # Syntax file format
 The syntax json file format is the following:
