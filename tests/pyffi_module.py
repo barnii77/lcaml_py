@@ -29,9 +29,11 @@ def append_to_list(lst: list, item):
     return lst
 
 
-def module():
-    return {
+@pyffi.pymodule
+def module(context):
+    d = {
         "test_pyffi": test_pyffi,
         "test_pyffi_ext": test_pyffi_ext,
         "append_to_list": append_to_list,
     }
+    return d

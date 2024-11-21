@@ -5,5 +5,4 @@ let factorial = |n| {
     return n * __this (n - 1);
   };
 };
-
 return factorial 5;

@@ -1,0 +1,8 @@
+let fn = |_| {
+    let hf = |_| {
+        undef;
+    };
+    hf ();
+    return hf;
+};
+let hf = fn ();

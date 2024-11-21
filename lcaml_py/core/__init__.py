@@ -14,4 +14,5 @@ from . import (
     pyffi,
     resolvable,
     token_type,
+    lcaml_debugger,
 )

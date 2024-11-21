@@ -67,10 +67,11 @@ def compile_lcaml(
     python_code = (
         template_params
         + lpy_runtime
-        + "\ndef module():\n"
+        + "\ndef module(_4083bec4fe9f2fc73612f03b):\n"
+        + indent("_ad7aaf167f237a94dc2c3ad2.update(_4083bec4fe9f2fc73612f03b)\n\n")
         + indent(generated_code)
         + '\nif __name__ == "__main__":\n'
-        + indent("module()")
+        + indent("module({})")
     )
     python_code = "\n".join(
         filter(lambda x: bool(x.rstrip()), python_code.split("\n"))
@@ -105,7 +106,7 @@ def compile_lcaml_io_handled(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("files", nargs="+", help="File to run")
+    parser.add_argument("files", nargs="+", help="Files to transpile to python")
     parser.add_argument("-s", "--syntax", default=None, help="Syntax file")
     group = parser.add_mutually_exclusive_group()
     group.add_argument(

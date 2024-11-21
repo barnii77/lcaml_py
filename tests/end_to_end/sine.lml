@@ -2,16 +2,34 @@ let factorial = |n| {
   if (n <= 1) {
     return 1;
   } else {
-    return n * factorial (n - 1);
+    return n * __this (n - 1);
   };
+};
+
+let factorial_proc = |n| {
+    let out = 1;
+    while (n > 1) {
+        let out = out * n;
+        let n = n - 1;
+    };
+    return out;
 };
 
 let power = |x n| {
   if (n == 0) {
     return 1;
   } else {
-    return x * power x (n - 1);
+    return x * __this x (n - 1);
   };
+};
+
+let power_proc = |x n| {
+    let out = 1;
+    while (n > 0) {
+        let out = out * x;
+        let n = n - 1;
+    };
+    return out;
 };
 
 let pi = 3.14159265;
@@ -27,12 +45,41 @@ let sin = |x| {
     } else {
       let sign = -1;
     };
-    let term = sign * (power x (2 * n + 1)) / factorial (2 * n + 1);
+    let term = sign * power x (2 * n + 1) / factorial (2 * n + 1);
     return term + sum_term (n + 1);
   };
   return sum_term 0;
 };
 
-let _ = print "should be 1";
+let sin_procedural = |x| {
+  let x = x % (2 * pi);
+  let sum_term = 0;
+  let n = 0;
+  while (n < 10) {
+    if (n % 2 == 0) {
+      let sign = 1;
+    } else {
+      let sign = -1;
+    };
+    let term = sign * power_proc x (2 * n + 1) / factorial_proc (2 * n + 1);
+    let sum_term = sum_term + term;
+    let n = n + 1;
+  };
+  return sum_term;
+};
 
-return sin (pi / 2);
+let _ = println "should be 1";
+
+let sin_rec = sin (pi / 2);
+println "rec result is " sin_rec;
+
+let sin_proc = sin_procedural (pi / 2);
+println "proc result is " sin_rec;
+
+println "diff is " (sin_rec - sin_proc);
+
+if (sin_rec - sin_proc > 0.00001 || sin_proc - sin_rec > 0.00001) {
+    undef_var;
+};
+
+return sin_rec;

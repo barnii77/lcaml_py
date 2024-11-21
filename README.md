@@ -32,7 +32,7 @@ The syntax json file format is the following:
 ```
 
 Here, "field_name" has to be replaced with the field you want to configure, the names of which can be found in the Syntax class in the lcaml_lexer.py file.
-Note that you cannot set the _this_keyword.
+Note that you cannot set the _this_intrinsic.
 Here are some of the most important ones:
 | name | description | default |
 |------|-------------|---------|

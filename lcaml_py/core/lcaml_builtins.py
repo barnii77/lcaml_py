@@ -2,21 +2,24 @@ import json
 import time
 import sys
 import os
-from . import interpreter as interpreter
+from copy import deepcopy
+from . import interpreter as interpreter_mod
 from . import lcaml_expression as lcaml_expression
 from . import interpreter_types as interpreter_types
+from . import interpreter_vm as interpreter_vm
 from . import lcaml_lexer as lcaml_lexer
 from . import pyffi as pyffi
+from . import lcaml_debugger as lcaml_debugger
 
 
 @pyffi.interface(name="print")
 def l_print(*args):
-    print(*args, sep="", end="")
+    print(*(arg if arg is not None else "()" for arg in args), sep="", end="")
 
 
 @pyffi.interface(name="println")
 def l_println(*args):
-    print(*args, sep="")
+    print(*(arg if arg is not None else "()" for arg in args), sep="")
 
 
 l_input = pyffi.interface(input, name="input")
@@ -240,8 +243,46 @@ def l_import_lcaml(context, args):
             syntax_raw = f.read()
         syntax_dict = json.loads(syntax_raw)
         syntax = lcaml_lexer.Syntax(**syntax_dict)
-    file_interpreter = interpreter.Interpreter(code, syntax)
-    result = file_interpreter.execute(context)
+
+    base_interpreter_obj: "interpreter_types.Object" = context.get(
+        lcaml_lexer.Syntax._interpreter_intrinsic
+    )
+    if base_interpreter_obj is None:
+        raise RuntimeError(
+            f"{lcaml_lexer.Syntax._interpreter_intrinsic} intrinsic is not set: Illegal state"
+        )
+    if base_interpreter_obj.type != interpreter_types.DType.PY_OBJ or not isinstance(
+        base_interpreter_obj.value, interpreter_mod.Interpreter
+    ):
+        raise RuntimeError(
+            f"{lcaml_lexer.Syntax._interpreter_intrinsic} intrinsic contains value not of type PY_OBJ/Interpreter: Illegal state"
+        )
+
+    vm_obj: "interpreter_types.Object" = context.get(lcaml_lexer.Syntax._vm_intrinsic)
+    if vm_obj is None:
+        raise RuntimeError(
+            f"{lcaml_lexer.Syntax._vm_intrinsic} intrinsic is not set: Illegal state"
+        )
+    if vm_obj.type != interpreter_types.DType.PY_OBJ or not isinstance(
+        vm_obj.value, interpreter_mod.interpreter_vm.InterpreterVM
+    ):
+        raise RuntimeError(
+            f"{lcaml_lexer.Syntax._vm_intrinsic} intrinsic contains value not of type PY_OBJ/InterpreterVM: Illegal state"
+        )
+
+    vm: "interpreter_mod.interpreter_vm.InterpreterVM" = vm_obj.value
+    base_interpreter: "interpreter_mod.Interpreter" = base_interpreter_obj.value
+
+    file_interpreter = interpreter_mod.Interpreter(
+        code,
+        syntax,
+        filepath,
+        base_interpreter.line_callbacks,
+        base_interpreter.next_step_callbacks,
+        base_interpreter.enable_vm_callbacks,
+        vm,
+    )
+    result = file_interpreter.execute(context.copy())
     return (
         result
         if result is not None
@@ -259,12 +300,21 @@ def l_import_glob(context, args):
     if not os.path.exists(dirpath):
         return interpreter_types.Object(interpreter_types.DType.INT, 1)
     filepath = os.path.join(dirpath, "module.lml")
-    args = (interpreter_types.Object(interpreter_types.DType.STRING, filepath),)
+    args = (interpreter_types.Object(interpreter_types.DType.STRING, filepath),) + (
+        (args[1],) if len(args) == 2 else ()
+    )
     return l_import_lcaml.execute(context, args)
 
 
-@pyffi.interface(name="import_py")
-def l_import_py(path: str):
+@pyffi.raw(name="import_py")
+def l_import_py(context, args):
+    if len(args) != 1:
+        raise ValueError("import takes 1 argument: filepath")
+    if not args[0].type == interpreter_types.DType.STRING:
+        raise ValueError("argument 1 (filepath) must be of type string")
+    path = args[0].value
+    if not os.path.exists(path):
+        raise ValueError(f"Invalid path: path {path} doesn't exist")
     path_without_ext, ext = os.path.splitext(path)
     ext = ext[1:]  # remove .
     if ext != "py":
@@ -275,14 +325,14 @@ def l_import_py(path: str):
         raise ValueError(
             "Disallowed path: path must not contain any dots (except before extension of file)"
         )
-    if not os.path.exists(path):
-        raise ValueError(f"Invalid path: path {path} doesn't exist")
     python_path = (
         path_without_ext.replace("\\\\", ".").replace("\\", ".").replace("/", ".")
     )
     g = {}
     exec(f"import {python_path} as mod", g)
-    return g["mod"].module()
+    return g["mod"].module(
+        context
+    )  # no need to copy context here, module will not change it
 
 
 @pyffi.raw(name="fuse")
@@ -320,8 +370,59 @@ def l_sleep(seconds):
     time.sleep(seconds)
 
 
-def module():
-    return {
+@pyffi.interface(name="panic")
+def l_panic(msg):
+    if not isinstance(msg, str):
+        raise TypeError("argument 1 (msg) of panic must be of type str")
+    raise RuntimeError("panic: " + msg)
+
+
+@pyffi.interface(name="ord")
+def l_ord(c):
+    if not isinstance(c, str):
+        raise TypeError("argument 1 (c) must be of type string")
+    if len(c) > 1:
+        raise ValueError(
+            "ord expects a single-character string, but got multi-character string"
+        )
+    return ord(c)
+
+
+@pyffi.interface(name="chr")
+def l_chr(o):
+    if not isinstance(o, int):
+        raise TypeError("argument 1 (o) must be of type int")
+    return chr(o)
+
+
+@pyffi.interface(name="time")
+def l_time():
+    return time.time()
+
+
+@pyffi.raw(name="breakpoint")
+def l_breakpoint(context, _):
+    lcaml_debugger.debugger_main(context)
+
+
+@pyffi.raw(name="jit")
+def l_jit(context, args):
+    if len(args) != 1:
+        raise ValueError("jit expects 1 argument: func")
+    func_obj = args[0]
+    if func_obj.type != interpreter_types.DType.FUNCTION:
+        raise TypeError(
+            f"first argument of `jit` must be a function, but is of type {interpreter_types.DType.name(func_obj.type)}"
+        )
+    func: "lcaml_expression.Function" = func_obj.value
+    new_func = deepcopy(func)
+    new_func.force_jit = True
+    return new_func
+
+
+@pyffi.pymodule
+def module(context):
+    exports = {
         "print": l_print,
         "println": l_println,
         "input": l_input,
@@ -348,4 +449,12 @@ def module():
         "import_py": l_import_py,
         "fuse": l_fuse,
         "exit": l_exit,
+        "sleep": l_sleep,
+        "panic": l_panic,
+        "ord": l_ord,
+        "chr": l_chr,
+        "time": l_time,
+        "breakpoint": l_breakpoint,
+        "jit": l_jit,
     }
+    return exports

@@ -1,0 +1,17 @@
+let assert_eq = |x correct| {
+    if (x != correct) {
+        println "assertion failed: " x " does not equal target value " correct;
+        crash;
+    };
+};
+
+let x = 2 | 3;
+assert_eq x 3;
+let x = 2 & 3;
+assert_eq x 2;
+let x = 2 << 1;
+assert_eq x 4;
+let x = 2 >> 1;
+assert_eq x 1;
+let x = 2 ^ 3;
+assert_eq x 1;

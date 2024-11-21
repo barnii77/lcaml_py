@@ -3,11 +3,12 @@
 class TokenKind:
     _PHANTOM = "<phantom>"
     LET = "let"
-    RETURN = "return_keyword"  # NOTE: because return is a python keyword, this naming is required
+    RETURN = "return_keyword"
     STRUCT = "struct_keyword"
     IF = "if_keyword"
     ELSE_IF = "else_if_keyword"
     ELSE = "else_keyword"
+    WHILE = "while_keyword"
     IDENTIFIER = "identifier"
     FUNCTION_ARGS = "function_args"
     UNIT_TYPE = "unit_type"
@@ -47,9 +48,10 @@ class Token:
 
     """
 
-    def __init__(self, type: str, value: str):
+    def __init__(self, type: str, value: str, line: int = -1):
         self.type = type
         self.value = value
+        self.line = line
 
     def __str__(self):
         return "Token(" + self.type + ", " + self.value + ")"

@@ -1,11 +1,11 @@
 import os
 import sys
 from timeit import timeit
-from core.interpreter import Interpreter
+from lcaml_py.core.interpreter import Interpreter
 
 
 def run():
-    interpreter.vm.variables = {}
+    interpreter.vm.context = {}
     result = interpreter.execute()
     print("interpreter returned: ", result)
 
@@ -24,7 +24,7 @@ if __name__ == '__main__':
             code = f.read()
         print(f"Running test: {file}")
         print()
-        interpreter = Interpreter(code)
+        interpreter = Interpreter(code, file)
         num_runs = 1  # 000
         time_taken = timeit(run, number=num_runs)
         # time_taken_python = timeit(python_run, number=num_runs)

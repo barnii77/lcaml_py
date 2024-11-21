@@ -7,4 +7,7 @@ let mult_by_4 = mult 4;
 let _ = print "should be   ";
 let _ = print 12;
 let _ = print nl;
+if (mult_by_4 3 != 12) {  -- note that function calls (f a b) have precedence over binary operators
+    undefined_variable;
+};
 return mult_by_4 3;

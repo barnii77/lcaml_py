@@ -6,12 +6,75 @@ from typing import Set
 import warnings
 
 from lcaml_py.core import interpreter as interpreter_mod
-from lcaml_py.core import lcaml_builtins
+from lcaml_py.core import interpreter_vm as interpreter_vm_mod
+from lcaml_py.core import lcaml_expression
 from lcaml_py.core.lcaml_lexer import Syntax
+from lcaml_py.core.lcaml_utils import get_marked_code_snippet
 from . import package_manager as pm
 
 
-def run(file, syntax_file, print_ret=False):
+def get_lcaml_traceback(exc: Exception) -> str:
+    tb_lines = []
+    tb_lines.append("LCaml Traceback (most recent call last):")
+    if not hasattr(exc, "__lcaml_traceback_info"):
+        print("Unable to construct lcaml traceback.")
+    tb_info = getattr(exc, "__lcaml_traceback_info")
+    code_lines = None
+    for loc in reversed(tb_info):
+        if isinstance(loc, interpreter_mod.Interpreter):
+            tb_lines.append(f"In file {loc.vm.file}:\n")
+            code_lines = loc.code.splitlines()
+        elif isinstance(loc, interpreter_vm_mod.InterpreterVM):
+            tb_lines.append(f"On line {loc.statement_line}:")
+            tb_lines.append(
+                get_marked_code_snippet(code_lines, loc.statement_line - 1, 3)
+                if code_lines is not None
+                else "<code unavailable>"
+            )
+            tb_lines.append("")
+        elif isinstance(loc, int):
+            tb_lines.append(f"On line {loc}:")
+            tb_lines.append(
+                get_marked_code_snippet(code_lines, loc - 1, 3)
+                if code_lines is not None
+                else "<code unavailable>"
+            )
+            tb_lines.append("")
+        elif isinstance(loc, tuple) and len(loc) == 2 and isinstance(loc[0], str) and isinstance(loc[1], str):
+            file, code = loc
+            tb_lines.append(f"In file {file}:\n")
+            code_lines = code.splitlines()
+        elif isinstance(loc, str):
+            tb_lines.append("Note: " + loc + "\n")
+        else:
+            raise TypeError("Invalid traceback entry encountered.")
+
+    # this chaos below improves error output format by trying to parse `repr(exc)` to some degree
+    r = repr(exc)
+    exc_name = ""
+    while r[0].isalnum():
+        exc_name += r[0]
+        r = r[1:]
+    if r.startswith("('") or r.startswith('("'):
+        r = r[2:]
+    elif r.startswith('('):
+        r = r[1:]
+    if r.endswith("')") or r.endswith('")'):
+        r = r[:-2]
+    elif r.endswith(')'):
+        r = r[:-1]
+    if r:
+        r = ": " + r
+    out = exc_name + r
+    if out:
+        out = "Raised " + out
+    tb_lines.append(out)
+    return "\n".join(tb_lines)
+
+
+def run(
+    file, syntax_file, print_ret=False, enable_vm_callbacks=True, lcaml_tracebacks=True
+):
     if not file.endswith(".lml"):
         raise Exception("Please provide a .lml file to run.")
     if not os.path.exists(file):
@@ -28,14 +91,29 @@ def run(file, syntax_file, print_ret=False):
         code = f.read()
     if syntax is not None:
         syntax = Syntax(**syntax)
-    interpreter = interpreter_mod.Interpreter(code, syntax)
-    variables = interpreter_mod.lcamlify_vars(lcaml_builtins.module()).fields
-    result = interpreter.execute(variables)
-    if print_ret and result is not None:
-        print("\n", result, sep="")
+    try:
+        interpreter = interpreter_mod.Interpreter(
+            code, syntax, file, enable_vm_callbacks=enable_vm_callbacks
+        )
+        variables = interpreter_mod.get_builtins()
+        result = interpreter.execute(variables)
+    except Exception as e:
+        if lcaml_tracebacks:
+            print(get_lcaml_traceback(e))
+        else:
+            raise e
+    else:
+        if print_ret and result is not None:
+            print("\n", result, sep="")
 
 
-def main(file, syntax_file=None, print_ret=False):
+def main(
+    file,
+    syntax_file=None,
+    print_ret=False,
+    enable_vm_callbacks=True,
+    lcaml_tracebacks=True,
+):
     if os.path.isdir(file):
         # run all files in dir
         for f in os.listdir(file):
@@ -44,10 +122,16 @@ def main(file, syntax_file=None, print_ret=False):
             print("\n----------------------\n")
             print(f"Running {f}")
             if f.endswith(".lml"):
-                run(os.path.join(file, f), syntax_file, print_ret)
+                run(
+                    os.path.join(file, f),
+                    syntax_file,
+                    print_ret,
+                    enable_vm_callbacks,
+                    lcaml_tracebacks,
+                )
             print("\n----------------------")
     else:
-        run(file, syntax_file, print_ret)
+        run(file, syntax_file, print_ret, enable_vm_callbacks, lcaml_tracebacks)
 
 
 def has_module_py(dep):
@@ -72,6 +156,32 @@ if __name__ == "__main__":
         "--debug",
         action="store_true",
         help="If set, print return value of file",
+    )
+    parser.add_argument(
+        "--no-vm-callbacks",
+        action="store_true",
+        help="If set, turns off vm callbacks, which shaves off some overhead but removes the underlying mechanism used by the breakpoint() function builtin",
+    )
+    parser.add_argument(
+        "--no-lcaml-tracebacks",
+        action="store_true",
+        help="If set, turns off lcaml tracebacks and instead propagates through the python exceptions",
+    )
+    parser.add_argument(
+        "--jit-by-default",
+        action="store_true",
+        help="If set, enables jit compilation by default and uses interpreter as fallback if jitting fails",
+    )
+    parser.add_argument(
+        "--suppress-jit",
+        action="store_true",
+        help="If set, suppresses the jit compiler completely and prevents jit compilation even of functions where it is forced (using the `jit` builtin)",
+    )
+    parser.add_argument(
+        "--jit-opt-level",
+        type=int,
+        help="Allows you to set the LLVM opt level used by the JIT compiler's optimization pipeline. Defaults to `2`, which should basically always be enough since the JIT compiler produces very simple IR where no super advanced passes should be needed.",
+        default=2,
     )
     args = parser.parse_args()
 
@@ -120,7 +230,18 @@ if __name__ == "__main__":
         if modules_after_install != modules_before_install:
             # probably some logs, separate from the main output
             print("+----------------------+ +-+ +----------------------+")
-        main(file_path, syntax_path, args.debug)
+        lcaml_expression.JIT_BY_DEFAULT = (
+            lcaml_expression.JIT_BY_DEFAULT or args.jit_by_default
+        )
+        lcaml_expression.SUPPRESS_JIT = args.suppress_jit
+        lcaml_expression.JIT_OPT_LEVEL = args.jit_opt_level
+        main(
+            file_path,
+            syntax_path,
+            args.debug,
+            not args.no_vm_callbacks,
+            not args.no_lcaml_tracebacks,
+        )
 
     elif args.install_deps:
         # install dependencies listed in args.install_deps (file path)
@@ -178,10 +299,13 @@ if __name__ == "__main__":
             dep_data["url"] = dep[0]
         else:
             dep_data["name"] = dep[0]
-        url_is_same = lambda x: dep_data["url"] is None or x["url"] == dep_data["url"]
-        name_is_same = (
-            lambda x: dep_data["name"] is None or x["name"] == dep_data["name"]
-        )
+
+        def url_is_same(x):
+            return dep_data["url"] is None or x["url"] == dep_data["url"]
+
+        def name_is_same(x):
+            return dep_data["name"] is None or x["name"] == dep_data["name"]
+
         matching_dep = list(filter(lambda x: url_is_same(x) and name_is_same(x), deps))
         if len(matching_dep) == 0:
             raise ValueError("No matching dependency found.")
