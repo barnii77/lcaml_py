@@ -1,3 +1,6 @@
 let a = 2;
 let b = 10;
 let _  = println "should be 1024: " (a ** b);
+if (1024 != (a ** b)) {
+    undefined_variable;
+};

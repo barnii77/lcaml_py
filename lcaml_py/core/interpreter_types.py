@@ -1,25 +1,25 @@
 from .operation_kind import OperationKind
-from typing import Any
-
 from .resolvable import Resolvable
+from typing import Any
 
 
 class DType:
     """
     This class represents a data type enum.
     """
+    ty = int
 
-    INT = 0
-    FLOAT = 1
-    STRING = 2
-    BOOL = 3
-    UNIT = 4
-    FUNCTION = 5
-    STRUCT_TYPE = 6
-    TABLE = 7
-    EXTERN_PYTHON = 8
-    PY_OBJ = 9
-    LIST = 10
+    INT: ty = 0
+    FLOAT: ty = 1
+    STRING: ty = 2
+    BOOL: ty = 3
+    UNIT: ty = 4
+    FUNCTION: ty = 5
+    STRUCT_TYPE: ty = 6
+    TABLE: ty = 7
+    EXTERN_PYTHON: ty = 8
+    PY_OBJ: ty = 9
+    LIST: ty = 10
 
     @staticmethod
     def name(code: int):
@@ -99,6 +99,16 @@ class DType:
             FLOAT: {
                 INT: FLOAT,
                 FLOAT: FLOAT,
+            },
+        },
+        OperationKind.IDIV: {
+            INT: {
+                INT: INT,
+                FLOAT: INT,
+            },
+            FLOAT: {
+                INT: INT,
+                FLOAT: INT,
             },
         },
         OperationKind.POW: {
@@ -471,6 +481,21 @@ class DType:
                 INT: INT,
             },
         },
+        OperationKind.LSH: {
+            INT: {
+                INT: INT,
+            },
+        },
+        OperationKind.RSH: {
+            INT: {
+                INT: INT,
+            },
+        },
+        OperationKind.BITXOR: {
+            INT: {
+                INT: INT,
+            },
+        },
         OperationKind.FLIP: {
             INT: INT,
         },
@@ -489,7 +514,7 @@ class Object(Resolvable):
         value: (Any) The value of the object.
     """
 
-    def __init__(self, type: int, value: Any):
+    def __init__(self, type: "DType.ty", value: Any):
         if isinstance(value, Object):
             value = value.value
         self.type = type
@@ -592,6 +617,21 @@ class Object(Resolvable):
                 f"Unsupported operation between {self.type} and {other.type}"
             )
         return Object(return_type, self.value / other.value)
+
+    def idiv(self, other):
+        if not isinstance(other, Object):
+            raise TypeError(f"Expected type Object, got {type(other)}")
+
+        return_type = (
+            DType._operation_result_rules.get(OperationKind.DIV, {})
+            .get(self.type, {})
+            .get(other.type)
+        )
+        if return_type is None:
+            raise TypeError(
+                f"Unsupported operation between {self.type} and {other.type}"
+            )
+        return Object(return_type, self.value // other.value)
 
     def mod(self, other):
         if not isinstance(other, Object):
@@ -774,3 +814,48 @@ class Object(Resolvable):
                 f"Unsupported operation between {self.type} and {other.type}"
             )
         return Object(return_type, self.value & other.value)
+
+    def bitxor(self, other):
+        if not isinstance(other, Object):
+            raise TypeError(f"Expected type Object, got {type(other)}")
+
+        return_type = (
+            DType._operation_result_rules.get(OperationKind.BITXOR, {})
+            .get(self.type, {})
+            .get(other.type)
+        )
+        if return_type is None:
+            raise TypeError(
+                f"Unsupported operation between {self.type} and {other.type}"
+            )
+        return Object(return_type, self.value ^ other.value)
+
+    def lsh(self, other):
+        if not isinstance(other, Object):
+            raise TypeError(f"Expected type Object, got {type(other)}")
+
+        return_type = (
+            DType._operation_result_rules.get(OperationKind.LSH, {})
+            .get(self.type, {})
+            .get(other.type)
+        )
+        if return_type is None:
+            raise TypeError(
+                f"Unsupported operation between {self.type} and {other.type}"
+            )
+        return Object(return_type, self.value << other.value)
+
+    def rsh(self, other):
+        if not isinstance(other, Object):
+            raise TypeError(f"Expected type Object, got {type(other)}")
+
+        return_type = (
+            DType._operation_result_rules.get(OperationKind.RSH, {})
+            .get(self.type, {})
+            .get(other.type)
+        )
+        if return_type is None:
+            raise TypeError(
+                f"Unsupported operation between {self.type} and {other.type}"
+            )
+        return Object(return_type, self.value >> other.value)

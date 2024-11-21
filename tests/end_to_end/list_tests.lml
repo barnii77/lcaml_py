@@ -6,4 +6,7 @@ let _ = pop l;
 let _ = append l 3;
 let _ = println l;
 let _ = println "should be true" (proper_list == l);
+if (!(proper_list == l)) {
+    undef_var;
+};
 return proper_list;

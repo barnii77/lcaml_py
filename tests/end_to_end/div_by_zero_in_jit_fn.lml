@@ -1,0 +1,5 @@
+let f = jit (|x| {
+    return x / 0.0;
+});
+
+println (f 5);

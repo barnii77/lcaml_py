@@ -1,11 +1,13 @@
+import functools
 from typing import Callable
-
 from . import extern_python as extern_python
 from .interpreter_types import DType, Object
 from . import interpreter_vm as lcaml_vm
 from . import lcaml_expression as lcaml_expression
 from . import parser_types as parser_types
+from . import interpreter
 
+# if hasattr(func, COMPYLA_IS_EXTERN_MAGIC_ATTRIBUTE_NAME) => func is pyffi function
 COMPYLA_IS_EXTERN_MAGIC_ATTRIBUTE_NAME = "_e6c50da35e8f9284c183e69b"
 COMPILE_WITH_CONTEXT_LEAKING = True
 
@@ -42,7 +44,7 @@ def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
         def vm_wrapper(*args):
             func_call = lcaml_expression.FunctionCall(lcaml_func, list(args))
             new_vm = lcaml_vm.InterpreterVM(func_call)
-            new_vm.variables = interpreter_vm.variables
+            new_vm.context = interpreter_vm.context
             return new_vm.execute()
 
         return vm_wrapper
@@ -59,31 +61,31 @@ def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
         raise TypeError("Unsupported LCaml type")
 
 
-def _python_to_lcaml(py_obj, interpreter_vm=None):
+def _python_to_lcaml(py_obj, interpreter_vm=None, wrap_extern_py=True):
     # NOTE: isinstance(True, int) returns True (and maybe some other weird stuff), therefore, use exact types
-    if type(py_obj) == int:
+    if type(py_obj) is int:
         return Object(DType.INT, py_obj)
     elif py_obj is None:
         return Object(DType.UNIT, None)
-    elif type(py_obj) == float:
+    elif type(py_obj) is float:
         return Object(DType.FLOAT, py_obj)
-    elif type(py_obj) == str:
+    elif type(py_obj) is str:
         return Object(DType.STRING, py_obj)
-    elif type(py_obj) == bool:
+    elif type(py_obj) is bool:
         return Object(DType.BOOL, py_obj)
-    elif type(py_obj) == dict:
+    elif type(py_obj) is dict:
         # Convert Python dict to LCaml Table
         fields = {
             key: _python_to_lcaml(val, interpreter_vm) for key, val in py_obj.items()
         }  # Assuming all values are strings
         return Object(DType.TABLE, lcaml_expression.Table(fields))
     elif hasattr(py_obj, "__call__"):
-        return Object(DType.EXTERN_PYTHON, interface(py_obj, interpreter_vm))
-    elif type(py_obj) == set and all(isinstance(item, str) for item in py_obj):
+        return Object(DType.EXTERN_PYTHON, interface(py_obj, interpreter_vm) if wrap_extern_py else py_obj)
+    elif type(py_obj) is set and all(isinstance(item, str) for item in py_obj):
         # Convert Python list of field names to LCaml StructType
         fields = [parser_types.AstIdentifier(field) for field in py_obj]
         return Object(DType.STRUCT_TYPE, lcaml_expression.StructType(fields))
-    elif type(py_obj) == list:
+    elif type(py_obj) is list:
         inner = [_python_to_lcaml(item) for item in py_obj]
         return Object(DType.LIST, lcaml_expression.LList(inner))
     else:
@@ -178,3 +180,14 @@ def raw(
         return Wrapper()
 
     return decorator if _func is None else decorator(_func)
+
+
+def pymodule(func):
+    @functools.wraps(func)
+    def wrapper(context):
+        exports = func(context)
+        if not context.get("__compiled"):
+            return interpreter.lcamlify_vars(exports, wrap_extern_py=False)
+        return exports
+
+    return wrapper

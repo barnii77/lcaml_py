@@ -1,2 +1,2 @@
 let x = false;
-let y = !!x;  // NOTE: does not work, error
+let y = !!x;  -- NOTE: does not work, error

@@ -1,3 +1,4 @@
+-- fun fact: lists used to be tables with integer keys
 -- let i = 0;
 -- let table = {x: 1, y: 2};
 -- let _ = set table i 4;
@@ -15,7 +16,13 @@ let _ = set list 0 4;
 let _ = set list 1 5;
 let _ = print "should be 9: ";
 let _ = println ((get list 0) + (get list 1));
+if (9 != ((get list 0) + (get list 1))) {
+    undef_var;
+};
 let _ = print "should be None: ";
 let _ = append list 6;
 let _ = println "should be 6: " (get list 2);
+if (6 != get list 2) {
+    undef_var;
+};
 return list;

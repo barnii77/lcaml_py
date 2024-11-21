@@ -1,0 +1,33 @@
+let mult_by_constant_function_factory = |z| {
+  let multiply_by_constant = |x| {
+    return x * z;
+  };
+  
+  return multiply_by_constant;
+};
+
+let mult_by_2 = mult_by_constant_function_factory 2;
+let _ = print "should be ";
+let _ = println 8;
+let out = mult_by_2 4;
+
+if (true) {
+    breakpoint();
+};
+
+let factorial = |n| {
+  if (n <= 1) {
+    return 1;
+  } else {
+    return n * __this (n - 1);
+  };
+};
+
+let fac = factorial 5;
+
+let a = 2;
+let b = 10;
+let _  = println "should be 1024: " (a ** b);
+if (1024 != (a ** b)) {
+    undefined_variable;
+};

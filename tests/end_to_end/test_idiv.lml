@@ -1,0 +1,26 @@
+let noop = |_| {
+    -- this just blocks jit compilation in another func
+};
+
+let func_no_jit = |a b| {
+    noop ();
+    return -a // b;
+};
+
+let func_jit = jit (|a b| {
+    return -a // b;
+});
+
+let fj = func_jit 1777777777 5;
+let fnj = func_no_jit 1777777777 5;
+if (fj != fnj) {
+    println fj " != " fnj;
+    failure;
+};
+
+let fj = func_jit (-1777777777.7) 0.4;
+let fnj = func_no_jit (-1777777777.7) 0.4;
+if (fj != fnj) {
+    println fj " != " fnj;
+    failure;
+};

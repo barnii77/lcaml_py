@@ -9,6 +9,29 @@ NAME_GEN_N_HASH_DIGITS = 24
 TokenStream = List[Token]
 
 
+def clip(x, lower, upper):
+    return max(lower, min(upper, x))
+
+
+def get_marked_code_snippet(code_lines, marked_line_idx, window_size=1):
+    if isinstance(code_lines, str):
+        code_lines = code_lines.splitlines()
+    window_size = (window_size - 1) / 2
+    printed_line_nums = list(
+        range(
+            clip(round(marked_line_idx - window_size + 0.1), 0, len(code_lines) - 1),
+            clip(round(marked_line_idx + window_size + 0.1), 0, len(code_lines) - 1) + 1,
+        )
+    )
+    max_line_num_len = max(map(lambda x: len(str(x + 1)), printed_line_nums))
+    return "\n".join(
+        map(
+            lambda line: f"{('->' if line == marked_line_idx else ''):<3}{str(line + 1).rjust(max_line_num_len)}| {code_lines[line]}",
+            printed_line_nums,
+        )
+    )
+
+
 def expect_only_expression(to_python_return: tuple[str, str, str]) -> str:
     pre_insert, expr, post_insert = to_python_return
     if pre_insert or post_insert:
@@ -84,6 +107,9 @@ class PhantomType:
 
     def __eq__(self, _):
         return True
+
+    def __neq__(self, _):
+        return False
 
     def __repr__(self):
         return "PhantomType()"

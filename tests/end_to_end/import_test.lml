@@ -1,3 +1,6 @@
 let mod = import_lcaml "tests/end_to_end/export_test.lml";
 let _ = println "should be 120";
 let _ = println ((mod.factorial) 5);
+if ((mod.factorial) 5 != 120) {
+    undef_var;
+};

@@ -1,0 +1,51 @@
+let factorial = jit (|n| {
+    let out = 1;
+    while (n > 1) {
+        let out = out * n;
+        let n = n - 1;
+    };
+    return out;
+    let out = 5;
+});
+
+let factorial_floatified = jit (|n| {
+    let nf = n * 1.0;
+    let out = 1.0;
+    while (nf > 1) {
+        let out = out * nf;
+        let nf = nf - 1;
+    };
+    return out;
+});
+
+let factorial_eoo = jit (|n mult_even| {
+    let step_size = 2;
+    let out = 1;
+    if (mult_even && n % 2 == 1 || !mult_even && n % 2 == 0) {
+        let n = n - 1;
+    };
+    while (n > 1) {
+        let out = out * n;
+        let n = n - step_size;
+    };
+    return out;
+});
+
+let void_ret_func = jit (|_| {});
+
+let f1 = factorial 5;
+let f2 = factorial 5;
+if (f1 != f2) {
+    undef;
+};
+println "factorial of 5 is " f1 " (computed using JIT-compiler)";
+println "factorial of 8 is " (factorial 8);
+-- println "factorial of 8 is " (factorial 8.5);
+println "factorial of 50: " (factorial 50) " (notice the overflow because of i64 size limit)";
+println "factorial_floatified of 50: " (factorial_floatified 50) " (now this should not overflow)";
+
+let f1e = factorial_eoo 5 true;
+let f1o = factorial_eoo 5 false;
+println "factorial of only even numbers up to 5 is " f1e;
+println "factorial of only odd numbers up to 5 is " f1o;
+println "void ret func returned " (void_ret_func 0);

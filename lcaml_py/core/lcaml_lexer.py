@@ -15,7 +15,9 @@ class Syntax:
     """
     This class defines the syntax of the language by containing named regex patterns.
     """
-    _this_keyword = r"__this"
+    _this_intrinsic = r"__this"
+    _vm_intrinsic = r"__vm"
+    _interpreter_intrinsic = r"__interpreter"
 
     def __init__(self, **kwargs):
         # non-syntax-pattern stuff
@@ -30,10 +32,11 @@ class Syntax:
         self.if_keyword = r"if"
         self.else_if_keyword = r"else\s+if"
         self.else_keyword = r"else"
+        self.while_keyword = "while"
 
         # types
         self.unit_type = r"\(\)"
-        self.floating_point = r"[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
+        self.floating_point = r"-?[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
         self.integer = r"-?[0-9]+"
         self._true = r"true"
         self.boolean = r"true|false"
@@ -54,9 +57,12 @@ class Syntax:
             "~",
             "**",
             "*",
+            "//",
             "/",
             "%",
             "+",
+            "<<",
+            ">>",
             "-",
             "<=",
             ">=",
@@ -66,6 +72,7 @@ class Syntax:
             "&&",
             "|",
             "&",
+            "^",
         )
         self.operator = "|".join("".join(f"\\{c}" for c in op) for op in operators)
 
@@ -94,8 +101,7 @@ class Syntax:
 
         """
         for k, v in kwargs.items():
-            if k != "_this_keyword":
-                setattr(self, k, v)
+            setattr(self, k, v)
 
     def patterns(self):
         """
@@ -118,6 +124,13 @@ class Syntax:
         return result
 
 
+class TokenList(list):
+    def __init__(self):
+        super().__init__()
+        # this is needed
+        self.__file = "<unknown>"
+
+
 class Lexer:
     """
 
@@ -129,12 +142,12 @@ class Lexer:
 
     """
 
-    def __init__(self, code: str, syntax: Syntax):
+    def __init__(self, code: str, syntax: Syntax, _file: str = "<unknown>"):
         self.code = code
         self.syntax = syntax
-        # self.state = LexState()
         self.num_symbols = len(code)
-        self.tokens = []
+        self.tokens = TokenList()
+        self.tokens.__file = _file
 
     def __call__(self) -> List[Token]:
         """
@@ -149,6 +162,7 @@ class Lexer:
         if self.tokens:  # if already lexed, just return the tokens
             return self.tokens
 
+        line = 1
         code = self.code
 
         while code.strip() != "":
@@ -159,14 +173,19 @@ class Lexer:
                 if m:
                     break
             else:
-                raise LexError("No matching pattern for " + code)
+                raise LexError(f"Syntax Error on line {line}: No matching pattern for ```{code[:20]}.....```")
 
             # save the match as a token
             token_value = m.group(group)
-            self.tokens.append(Token(kind, token_value))
+            self.tokens.append(Token(kind, token_value, line))
 
             # increment position
             token_len = m.end(1)
+            line += code[:token_len].count("\n")
+            while token_len < len(code) and code[token_len].isspace():
+                if code[token_len] == "\n":
+                    line += 1
+                token_len += 1
             code = code[token_len:]
 
         return self.tokens

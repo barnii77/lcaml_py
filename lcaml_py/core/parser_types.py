@@ -43,7 +43,8 @@ class AstStatementType:
     ASSIGNMENT = 0
     RETURN = 1
     CONTROL_FLOW = 2
-    EXPRESSION = 3
+    WHILE_LOOP = 3
+    EXPRESSION = 4
 
 
 class AstAssignment(AstRelated):
@@ -121,14 +122,15 @@ class AstControlFlowBranch(AstRelated):
 
     """
 
-    def __init__(self, condition, body, _is_first: bool = False):
+    def __init__(self, condition, body, _is_first: bool = False, line: int = -1):
         self.condition = condition
         self.body = body
         self._is_first = _is_first
+        self.line = line
 
     def __str__(self):
         return (
-            "AstControlFlowBranch(" + str(self.condition) + ", " + str(self.body) + ")"
+            "AstControlFlowBranch(" + str(self.condition) + ", " + str(self.body) + ", line " + str(self.line) + ")"
         )
 
     def to_python(self):
@@ -149,7 +151,7 @@ class AstControlFlow(AstRelated):
         conditions: (List[AstControlFlowBranch]) list of conditions
     """
 
-    def __init__(self, branches: list):
+    def __init__(self, branches: List["AstControlFlowBranch"]):
         self.branches = branches
 
     def __str__(self):
@@ -201,7 +203,8 @@ class AstControlFlow(AstRelated):
 
         # parse initial if
         # followed by expression
-        if stream.pop(0).type != TokenKind.LPAREN:  # check/remove LPAREN
+        cond_open_tok = stream.pop(0)
+        if cond_open_tok.type != TokenKind.LPAREN:  # check/remove LPAREN
             raise ValueError("Expected LPAREN after if statement")
 
         expression, stream, symbols_used = lcaml_expression.Expression.from_stream(
@@ -217,15 +220,15 @@ class AstControlFlow(AstRelated):
         stream.pop(0)  # remove RCURLY
         body, symbols_used = lcaml_parser.Ast.from_stream(body, syntax)
         all_symbols_used.update(symbols_used)
-        branch = AstControlFlowBranch(expression, body, _is_first=True)
+        branch = AstControlFlowBranch(expression, body, _is_first=True, line=cond_open_tok.line)
         branches.append(branch)
 
         # parse all the else ifs
         while stream:
-            token = stream.pop(0)
+            else_if_tok = stream.pop(0)
 
-            if token.type != TokenKind.ELSE_IF:
-                stream.insert(0, token)
+            if else_if_tok.type != TokenKind.ELSE_IF:
+                stream.insert(0, else_if_tok)
                 break
 
             if stream.pop(0).type != TokenKind.LPAREN:  # check/remove LPAREN
@@ -245,13 +248,13 @@ class AstControlFlow(AstRelated):
             body, symbols_used = lcaml_parser.Ast.from_stream(body, syntax)
             all_symbols_used.update(symbols_used)
 
-            branch = AstControlFlowBranch(expression, body)
+            branch = AstControlFlowBranch(expression, body, line=else_if_tok.line)
             branches.append(branch)
 
-        token = stream.pop(0)
+        else_tok = stream.pop(0)
 
-        if token.type != TokenKind.ELSE:
-            stream.insert(0, token)
+        if else_tok.type != TokenKind.ELSE:
+            stream.insert(0, else_tok)
             return AstControlFlow(branches), stream, all_symbols_used
 
         if stream.pop(0).type != TokenKind.LCURLY:
@@ -262,10 +265,72 @@ class AstControlFlow(AstRelated):
         body, symbols_used = lcaml_parser.Ast.from_stream(body, syntax)
         all_symbols_used.update(symbols_used)
 
-        branch = AstControlFlowBranch(ELSE_ARTIFICIAL_IF_EXPRESSION, body)
+        branch = AstControlFlowBranch(ELSE_ARTIFICIAL_IF_EXPRESSION, body, line=else_tok.line)
         branches.append(branch)
 
         return cls(branches), stream, all_symbols_used
+
+
+class AstWhileLoop(AstRelated):
+    def __init__(self, condition: "lcaml_expression.Expression", body: "lcaml_parser.Ast"):
+        self.condition = condition
+        self.body = body
+
+    def __str__(self):
+        return "AstWhileLoop(" + str(self.condition) + ", " + str(self.body) + ")"
+
+    def to_python(self):
+        kw = "while"
+        cond_pre_insert, cond_expr, cond_post_insert = self.condition.to_python()
+        block_pre_insert, block, block_post_insert = self.body.to_python()
+
+        return (
+            cond_pre_insert + "\n" + block_pre_insert,
+            kw + " " + cond_expr + ":\n" + indent(block),
+            cond_post_insert + "\n" + block_post_insert,
+        )
+
+    @classmethod
+    def from_stream(
+        cls, stream: TokenStream, syntax: Syntax = Syntax()
+    ) -> Tuple[Any, TokenStream, Set[Any]]:
+        """
+
+        Args:
+            stream: TokenStream to parse
+
+        Returns:
+            AstWhileLoop: object built from tokenstream
+
+        Raises:
+            ParseError: Parser could not parse the code
+
+        """
+        all_symbols_used: Set[lcaml_expression.Variable] = set()
+        # constants
+        BODY_END_TOKEN = Token(TokenKind.RCURLY, PhantomType())
+        CONDITION_END_TOKEN = Token(TokenKind.RPAREN, PhantomType())
+
+        # parse initial if
+        # followed by expression
+        if stream.pop(0).type != TokenKind.LPAREN:  # check/remove LPAREN
+            raise ValueError("Expected LPAREN after if statement")
+
+        expression, stream, symbols_used = lcaml_expression.Expression.from_stream(
+            stream, syntax, CONDITION_END_TOKEN
+        )
+        stream.pop(0)  # remove RPAREN
+        all_symbols_used.update(symbols_used)
+
+        if stream.pop(0).type != TokenKind.LCURLY:  # check/remove LCURLY
+            raise ValueError("Expected LCURLY after if statement")
+
+        body, stream = split_at_context_end(stream, BODY_END_TOKEN)
+        stream.pop(0)  # remove RCURLY
+        body, symbols_used = lcaml_parser.Ast.from_stream(body, syntax)
+        all_symbols_used.update(symbols_used)
+
+        return cls(expression, body), stream, all_symbols_used
 
 
 class AstExpressionStatement(AstRelated):

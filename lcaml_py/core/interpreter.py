@@ -4,21 +4,29 @@ from . import lcaml_lexer
 from . import lcaml_parser
 from . import lcaml_builtins
 from . import interpreter_vm
+from .interpreter_types import Object, DType
 from . import lcaml_expression
-from .parser_types import AstIdentifier
-from .token_type import Token, TokenKind
+from .pyffi import _python_to_lcaml
+
+# from .parser_types import AstIdentifier
+# from .token_type import Token, TokenKind
+from typing import Optional
 
 
-def lcamlify_vars(variables: dict[str, object]) -> "lcaml_expression.Table[dict[AstIdentifier, object]]":
+def lcamlify_vars(
+    variables: dict[str, object], wrap_extern_py=True
+) -> "lcaml_expression.Table":
     result = {}
     for name, value in variables.items():
-        name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
-        result[name_ast_id] = lcamlify_vars(value) if isinstance(value, dict) else value
+        # name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
+        result[name] = lcamlify_vars(value) if isinstance(value, dict) else _python_to_lcaml(value, wrap_extern_py=wrap_extern_py)
     return lcaml_expression.Table(result)
 
 
 def get_builtins():
-    return lcamlify_vars(lcaml_builtins.module())
+    b = lcaml_builtins.module({})
+    assert isinstance(b, lcaml_expression.Table)
+    return b.fields
 
 
 class Interpreter:
@@ -39,32 +47,59 @@ class Interpreter:
             LexError
             ParseError
     """
-    def __init__(self, code: str, syntax=None):
+
+    def __init__(
+        self,
+        code: str,
+        syntax=None,
+        file="<unknown>",
+        line_callbacks=None,
+        next_step_callbacks=None,
+        enable_vm_callbacks=True,
+        parent=None,
+    ):
         if syntax is None:
             syntax = lcaml_lexer.Syntax()
         self.syntax = syntax
-        self.tokens = lcaml_lexer.Lexer(code, self.syntax)()
-        self.ast = lcaml_parser.Parser(self.tokens, self.syntax)()
-        self.vm = interpreter_vm.InterpreterVM(self.ast)
+        self.code = code
+        self.tokens = lcaml_lexer.Lexer(code, self.syntax, file)()
+        self.ast = lcaml_parser.Parser(self.tokens, self.syntax, file, code)()
+        self.line_callbacks = {} if line_callbacks is None else line_callbacks
+        self.next_step_callbacks = (
+            [] if next_step_callbacks is None else next_step_callbacks
+        )
+        self.parent = parent
+        self.enable_vm_callbacks = enable_vm_callbacks
+        self.vm = interpreter_vm.InterpreterVM(
+            self.ast,
+            parent=self,
+            line_callbacks=self.line_callbacks,
+            next_step_callbacks=self.next_step_callbacks,
+            file=file,
+            _causes_traceback_entry=True,
+            _enable_vm_callbacks=enable_vm_callbacks,
+        )
 
-    def execute(self, variables: dict = None):
+    def execute(self, variables: Optional[dict] = None):
         """
-
         Returns:
             Any: The return value of the code
-
         """
         if variables is None:
-            self.vm.variables = get_builtins()
+            self.vm.context = get_builtins()
         else:
-            self.vm.variables = variables
+            self.vm.context = variables
+        self.vm.context[self.syntax._interpreter_intrinsic] = Object(DType.PY_OBJ, self)
         recursion_limit = sys.getrecursionlimit()
         sys.setrecursionlimit(LCAML_RECURSION_LIMIT)
+
         try:
             self.vm.execute()
         except Exception as e:
-            sys.setrecursionlimit(recursion_limit)
+            if not hasattr(e, "__lcaml_traceback_info"):
+                setattr(e, "__lcaml_traceback_info", [])
+            getattr(e, "__lcaml_traceback_info").append(self)
             raise e
-        else:
-            sys.setrecursionlimit(recursion_limit)
+
+        sys.setrecursionlimit(recursion_limit)
         return self.vm.return_value

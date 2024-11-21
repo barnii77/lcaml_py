@@ -1,7 +1,7 @@
 from typing import Dict, Any
 
 
-Context = Dict['AstIdentifier', Any]
+Context = Dict[str, "Object"]
 
 
 class Resolvable:

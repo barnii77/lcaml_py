@@ -1,7 +1,10 @@
+import itertools
+
 from . import lcaml_parser as lcaml_parser
 from . import parser_types as parser_types
 from . import interpreter_vm as interpreter_vm_mod
 from . import extern_python as extern_python
+from . import pyffi
 
 from .resolvable import Resolvable
 from .ast_related import AstRelated
@@ -17,12 +20,68 @@ from .lcaml_utils import (
 )
 from .interpreter_types import Object, DType
 from .operation_kind import OperationKind
-from typing import List, Dict, Optional, Set, Iterable, Any
+from typing import List, Dict, Optional, Set, Iterable, Any, Tuple, Union
+from ctypes import CFUNCTYPE, c_double, c_int64, c_bool, POINTER, byref as c_byref
+
+try:
+    import llvmlite.ir as llvm_ir
+    import llvmlite.binding as llvm_binding
+
+    llvm_binding.initialize()
+    llvm_binding.initialize_native_target()
+    llvm_binding.initialize_native_asmprinter()
+    target = llvm_binding.Target.from_default_triple()
+    target_machine = target.create_target_machine()
+    # And an execution engine with an empty backing module
+    backing_mod = llvm_binding.parse_assembly("")
+    LLVM_EXECUTION_ENGINE = llvm_binding.create_mcjit_compiler(
+        backing_mod, target_machine
+    )
+except Exception:
+    raise RuntimeError("TODO make this not crash")  # TODO make this not crash but just not allow jit comp
+
+
+def create_execution_engine():
+    """
+    Create an ExecutionEngine suitable for JIT code generation on
+    the host CPU.  The engine is reusable for an arbitrary number of
+    modules.
+    """
+    # Create a target machine representing the host
+    target = llvm_binding.Target.from_default_triple()
+    target_machine = target.create_target_machine()
+    # And an execution engine with an empty backing module
+    backing_mod = llvm_binding.parse_assembly("")
+    engine = llvm_binding.create_mcjit_compiler(backing_mod, target_machine)
+    return engine
+
+
+def compile_llvm_module(ir_mod, main_func_name) -> int:
+    """
+    Compile the LLVM module object with the given engine.
+    From the compiled module object, the main function is extracted
+    and a function pointer to it is returned as an int.
+    """
+    # TODO optimization pipeline
+    llasm = str(ir_mod)
+    print(llasm)
+    binding_mod = llvm_binding.parse_assembly(llasm)
+    binding_mod.verify()
+    LLVM_EXECUTION_ENGINE.add_module(binding_mod)
+    LLVM_EXECUTION_ENGINE.finalize_object()
+    LLVM_EXECUTION_ENGINE.run_static_constructors()
+    return LLVM_EXECUTION_ENGINE.get_function_address(main_func_name)
+
 
 COMPILE_WITH_CONTEXT_LEAKING = True
+JIT_BY_DEFAULT = False
+SUPPRESS_JIT = False
+JIT_OPT_LEVEL = 2
+C_CALL_ERR_CODES = {ZeroDivisionError: 1}
+C_CALL_ERR_EXCEPTIONS = {v: k for k, v in C_CALL_ERR_CODES.items()}
 
 TokenStream = List[Token]
-Context = Dict["parser_types.AstIdentifier", Object]
+Context = Dict[str, Object]
 
 
 SYMBOL_TO_OPKIND = {
@@ -31,6 +90,7 @@ SYMBOL_TO_OPKIND = {
     "**": OperationKind.POW,
     "*": OperationKind.MUL,
     "/": OperationKind.DIV,
+    "//": OperationKind.IDIV,
     "%": OperationKind.MOD,
     "!": OperationKind.NOT,
     "==": OperationKind.EQ,
@@ -44,14 +104,18 @@ SYMBOL_TO_OPKIND = {
     "&&": OperationKind.AND,
     "|": OperationKind.BITOR,
     "&": OperationKind.BITAND,
+    "^": OperationKind.BITXOR,
+    "<<": OperationKind.LSH,
+    ">>": OperationKind.RSH,
 }
 
-OPKIND_TO_SYMBOL = {
+OPKIND_TO_PYTHON_SYMBOL = {
     OperationKind.ADD: "+",
     OperationKind.SUB: "-",
     OperationKind.POW: "**",
     OperationKind.MUL: "*",
     OperationKind.DIV: "/",
+    OperationKind.IDIV: "//",
     OperationKind.MOD: "%",
     OperationKind.NOT: "!",
     OperationKind.EQ: "==",
@@ -61,11 +125,18 @@ OPKIND_TO_SYMBOL = {
     OperationKind.FLIP: "~",
     OperationKind.LTE: "<=",
     OperationKind.GTE: ">=",
-    OperationKind.OR: "||",
-    OperationKind.AND: "&&",
+    OperationKind.OR: "or",
+    OperationKind.AND: "and",
     OperationKind.BITOR: "|",
     OperationKind.BITAND: "&",
+    OperationKind.BITXOR: "^",
+    OperationKind.LSH: "<<",
+    OperationKind.RSH: ">>",
 }
+
+
+class JitCompError(Exception):
+    pass
 
 
 class Gettable:
@@ -92,18 +163,22 @@ class Function(AstRelated, Resolvable):
         self,
         body,
         arguments: List["parser_types.AstIdentifier"],
-        bounds: Iterable["parser_types.AstIdentifier"],
+        bounds: Union[Iterable[str], Dict[str, "Object"]],
         syntax: Syntax = Syntax(),
+        _file="<unknown>",
+        force_jit=False,
     ):
         self.body = body
         self.arguments = arguments
         self._syntax = syntax
+        self.jit_cache = {}
+        self.func_ptr_ret_ty_cache = {}
+        self._file = _file
+        self.force_jit = force_jit
         if isinstance(bounds, dict):
-            self.bounds: Dict["parser_types.AstIdentifier", Object] = bounds
+            self.bounds: Dict[str, Object] = bounds
         else:
-            self.bounds: Dict["parser_types.AstIdentifier", Object] = {
-                ident: None for ident in bounds
-            }
+            self.bounds: Dict[str, Object] = {ident: None for ident in bounds}
 
     def __str__(self):
         return "Function(" + str(self.body) + ", " + str(self.arguments) + ")"
@@ -114,14 +189,17 @@ class Function(AstRelated, Resolvable):
         body_pre_insert, body_block, body_post_insert = self.body.to_python()
         if COMPILE_WITH_CONTEXT_LEAKING:
             body_block = (
-                "\n".join(f'_ad7aaf167f237a94dc2c3ad2["{arg}"] = {arg}' for arg in args + [Syntax._this_keyword])
+                "\n".join(
+                    f'_ad7aaf167f237a94dc2c3ad2["{arg}"] = {arg}'
+                    for arg in args + [Syntax._this_intrinsic]
+                )
                 + "\n"
                 + body_block
             )
         function_def = (
             f"def {name}(_ad7aaf167f237a94dc2c3ad2, "
             + ", ".join(args)
-            + f", {Syntax._this_keyword}):\n{indent(body_block)}\n{name}_self_referral_list = [0]"
+            + f", {Syntax._this_intrinsic}):\n{indent(body_block)}\n{name}_self_referral_list = [0]"
         )
         value = (
             "lambda _ad7aaf167f237a94dc2c3ad2, "
@@ -138,21 +216,623 @@ class Function(AstRelated, Resolvable):
         populate_self_referral_list = f"{name}_self_referral_list[0] = {value}"
         return (
             body_pre_insert + "\n" + function_def + "\n" + body_post_insert,
-            value,
+            "(" + value + ")",
             populate_self_referral_list,
         )
 
+    @staticmethod
+    def _get_type(expr, dtypes: Dict["str", "DType.ty"]) -> "DType.ty":
+        if isinstance(expr, Constant):
+            return expr.value.type
+        elif isinstance(expr, Variable):
+            if expr.identifier.name in dtypes:
+                return dtypes[expr.identifier.name]
+            raise JitCompError(f"usage of undefined variable `{expr.identifier.name}`")
+        elif isinstance(expr, Expression):
+            return Function._get_type(expr.expression, dtypes)
+        elif isinstance(expr, Operation):
+            if expr.is_unary:
+                dtype_right = Function._get_type(expr.right, dtypes)
+                dtype_out = DType._operation_result_rules.get(expr.operation, {}).get(dtype_right)
+                if dtype_out is None:
+                    raise JitCompError(
+                        f"unsupported operation {OPKIND_TO_PYTHON_SYMBOL[expr.operation]} for {DType.name(dtype_right)} (right of unary op)"
+                    )
+                return dtype_right
+            else:
+                dtype_left, dtype_right = Function._get_type(expr.left, dtypes), Function._get_type(expr.right, dtypes)
+                dtype_out = DType._operation_result_rules.get(expr.operation, {}).get(dtype_left, {}).get(dtype_right)
+                if dtype_out is None:
+                    raise JitCompError(
+                        f"unsupported operation {OPKIND_TO_PYTHON_SYMBOL[expr.operation]} for {DType.name(dtype_left)} (left) and {DType.name(dtype_right)} (right)"
+                    )
+                return dtype_out
+        else:
+            raise JitCompError(f"expression of type {type(expr)} cannot be type analyzed")
+
+    @staticmethod
+    def _get_ret_type(ast, context, dtypes: Dict["str", "DType.ty"]) -> Optional["DType.ty"]:
+        if isinstance(ast, lcaml_parser.Ast):
+            types = []
+            for stmt in ast.statements:
+                types.append(Function._get_ret_type(stmt, context, dtypes))
+                # if I generate instr after a terminator instr, that is invalid LLVM IR => stop
+                if stmt.type == parser_types.AstStatementType.RETURN:
+                    break
+            types = [ty for ty in types if ty is not None]
+            if types:
+                if not all(types[0] == ty for ty in types):
+                    raise JitCompError("different branches have different return types")
+                return types[0]
+        elif isinstance(ast, lcaml_parser.AstStatement):
+            if ast.type in (
+                parser_types.AstStatementType.ASSIGNMENT,
+                parser_types.AstStatementType.RETURN,
+                parser_types.AstStatementType.EXPRESSION,
+                parser_types.AstStatementType.CONTROL_FLOW,
+                parser_types.AstStatementType.WHILE_LOOP,
+            ):
+                return Function._get_ret_type(ast.value, context, dtypes)
+            else:
+                raise ValueError("invalid type attribute encountered on AstStatement")
+        elif isinstance(ast, parser_types.AstAssignment):
+            dtype = Function._get_type(ast.value, dtypes)
+            if ast.identifier.name not in dtypes:
+                dtypes[ast.identifier.name] = dtype
+            if dtypes[ast.identifier.name] != dtype:
+                raise JitCompError("different dtypes assigned into same var")
+        elif isinstance(ast, parser_types.AstReturn):
+            dtype = Function._get_type(ast.value, dtypes)
+            return dtype
+        elif isinstance(ast, parser_types.AstControlFlow):
+            types = []
+            for branch in ast.branches:
+                types.append(Function._get_ret_type(branch.body, context, dtypes))
+            types = [ty for ty in types if ty is not None]
+            if not all(types[0] == ty for ty in types):
+                raise JitCompError("different if condition branches have different return types")
+            if types:
+                return types[0]
+        elif isinstance(ast, parser_types.AstWhileLoop):
+            return Function._get_ret_type(ast.body, context, dtypes)
+
+    @staticmethod
+    def _get_llvm_type(t: "DType.ty"):
+        if t == DType.INT:
+            return llvm_ir.IntType(64)
+        elif t == DType.FLOAT:
+            return llvm_ir.DoubleType()
+        elif t == DType.BOOL:
+            return llvm_ir.IntType(1)
+        elif t == DType.UNIT:
+            return llvm_ir.VoidType()
+        else:
+            raise JitCompError(f"cannot convert type {DType.name(t)} to llvm type")
+
+    def _compatibility_cast(
+        self,
+        builder: "llvm_ir.IRBuilder",
+        a: "llvm_ir.Value",
+        b: "llvm_ir.Value",
+        dtype_a: "DType.ty",
+        dtype_b: "DType.ty",
+        a_llty: "llvm_ir.Type",
+        b_llty: "llvm_ir.Type",
+    ) -> tuple["llvm_ir.Value", "llvm_ir.Value", "llvm_ir.Type", "DType.ty"]:
+        def jitc_err():
+            raise JitCompError("cannot upcast")
+
+        hierarchy = [DType.BOOL, DType.INT, DType.FLOAT]
+        if dtype_a not in hierarchy:
+            raise JitCompError(f"A dtype not supported in the jit compiler was encountered: {DType.name(dtype_a)}")
+        if dtype_b not in hierarchy:
+            raise JitCompError(f"A dtype not supported in the jit compiler was encountered: {DType.name(dtype_b)}")
+        upcast_fns = [lambda x: builder.zext(x, llvm_ir.IntType(64)), lambda x: builder.sitofp(x, llvm_ir.DoubleType()), lambda _: jitc_err()]
+        h_a, h_b = hierarchy.index(dtype_a), hierarchy.index(dtype_b)
+        out_llty = a_llty if h_a > h_b else b_llty
+        out_dtype = dtype_a if h_a > h_b else dtype_b
+        while True:
+            if h_a < h_b:
+                upf = upcast_fns[h_a]
+                a = upf(a)
+                h_a += 1
+            elif h_a > h_b:
+                upf = upcast_fns[h_b]
+                b = upf(b)
+                h_b += 1
+            else:
+                break
+        if h_a > len(hierarchy) or h_b > len(hierarchy):
+            raise RuntimeError("lcaml (jitc) internal error: unreachable")
+        return a, b, out_llty, out_dtype
+
+    @staticmethod
+    def _value_of_type(dtype, value: Any = 0):
+        if dtype == DType.FLOAT:
+            return float(value)
+        elif dtype == DType.INT:
+            return int(value)
+        elif dtype == DType.BOOL:
+            return bool(value)
+        elif dtype == DType.UNIT:
+            return None
+        else:
+            raise JitCompError("unsupported dtype for jit compiler")
+    
+    @staticmethod
+    def _insert_zero_check(builder: "llvm_ir.builder.IRBuilder", llvalue, dtype, func_ret_type):
+        assert dtype != DType.UNIT
+        err_out_param = builder.function.args[-1]
+        llty = Function._get_llvm_type(dtype)
+        zero = llvm_ir.Constant(llty, Function._value_of_type(dtype))
+        div_by_zero_err_code = llvm_ir.Constant(llvm_ir.IntType(64), C_CALL_ERR_CODES[ZeroDivisionError])
+        ret_val = (
+            llvm_ir.Constant(Function._get_llvm_type(func_ret_type), Function._value_of_type(func_ret_type))
+            if func_ret_type != DType.UNIT
+            else None
+        )
+        bb_is_zero = builder.append_basic_block("is_zero")
+        bb_is_not_zero = builder.append_basic_block("is_not_zero")
+
+        if dtype == DType.FLOAT:
+            cond = builder.fcmp_unordered("!=", llvalue, zero)
+        else:
+            cond = builder.icmp_signed("!=", llvalue, zero)
+        branch_inst = builder.cbranch(cond, bb_is_not_zero, bb_is_zero)
+        branch_inst.set_weights([99, 1])
+
+        builder.position_at_end(bb_is_zero)
+        builder.store(div_by_zero_err_code, err_out_param)
+        if ret_val is not None:
+            builder.ret(ret_val)
+        else:
+            builder.ret_void()
+        builder.position_at_end(bb_is_not_zero)
+
+    def _jit_compile(
+        self,
+        ast,
+        builder: "llvm_ir.builder.IRBuilder",
+        dtypes: Dict[str, "DType.ty"],
+        vars: Dict[str, "llvm_ir.Value"],
+        context: "Context",
+        bb_allocas: Optional["llvm_ir.Block"] = None,
+    ) -> Union[tuple["llvm_ir.Value", "llvm_ir.Type"], tuple[None, None]]:
+        if isinstance(ast, lcaml_parser.Ast):
+            for stmt in ast.statements:
+                self._jit_compile(stmt, builder, dtypes, vars, context, bb_allocas)
+                # if I generate instr after a terminator instr, that is invalid LLVM IR => stop
+                if stmt.type == parser_types.AstStatementType.RETURN:
+                    break
+        elif isinstance(ast, lcaml_parser.AstStatement):
+            if ast.type in (
+                parser_types.AstStatementType.ASSIGNMENT,
+                parser_types.AstStatementType.RETURN,
+                parser_types.AstStatementType.EXPRESSION,
+                parser_types.AstStatementType.CONTROL_FLOW,
+                parser_types.AstStatementType.WHILE_LOOP,
+            ):
+                self._jit_compile(ast.value, builder, dtypes, vars, context, bb_allocas)
+            else:
+                raise ValueError("invalid type attribute encountered on AstStatement")
+        elif isinstance(ast, parser_types.AstAssignment):
+            dtype = self._get_type(ast.value, dtypes)
+            if ast.identifier.name not in dtypes:
+                dtypes[ast.identifier.name] = dtype
+            if dtypes[ast.identifier.name] != dtype:
+                raise JitCompError("different dtypes assigned into same var")
+            value, _ = self._jit_compile(ast.value, builder, dtypes, vars, context, bb_allocas)
+            if ast.identifier.name not in vars:
+                if bb_allocas:
+                    with builder.goto_block(bb_allocas):
+                        vars[ast.identifier.name] = builder.alloca(
+                            self._get_llvm_type(dtype),
+                            name=ast.identifier.name
+                        )
+                else:
+                    vars[ast.identifier.name] = builder.alloca(
+                        self._get_llvm_type(dtype),
+                        name=ast.identifier.name
+                    )
+            builder.store(
+                value,
+                vars[ast.identifier.name],
+            )
+        elif isinstance(ast, parser_types.AstReturn):
+            value, _ = self._jit_compile(ast.value, builder, dtypes, vars, context, bb_allocas)
+            builder.ret(value)
+        elif isinstance(ast, parser_types.AstExpressionStatement):
+            self._jit_compile(ast.expression, builder, dtypes, vars, context, bb_allocas)
+        elif isinstance(ast, parser_types.AstControlFlow):
+            bbs = [
+                (
+                    builder.append_basic_block(f"cond{i}"),
+                    builder.append_basic_block(f"branch{i}"),
+                )
+                for i in range(len(ast.branches))
+            ]
+            post_if = builder.append_basic_block("post_if")
+            cond_block_chain = iter([bb_cond for bb_cond, _ in bbs] + [post_if])
+            builder.branch(next(cond_block_chain))
+            for (bb_cond, bb_body), branch in zip(bbs, ast.branches):
+                # build cond
+                builder.position_at_end(bb_cond)
+                cond, cond_llty = self._jit_compile(
+                    branch.condition, builder, dtypes, vars, context, bb_allocas
+                )
+                # switch instr with default case cond.true and value eq 0 case cond.false (optimized into br instr by llvm)
+                sw = builder.switch(cond, bb_body)
+                sw.add_case(llvm_ir.Constant(cond_llty, 0), next(cond_block_chain))
+
+                # build body
+                builder.position_at_end(bb_body)
+                self._jit_compile(branch.body, builder, dtypes, vars, context, bb_allocas)
+                builder.branch(post_if)
+
+            builder.position_at_end(post_if)
+        elif isinstance(ast, parser_types.AstWhileLoop):
+            bb_cond = builder.append_basic_block("cond")
+            bb_body = builder.append_basic_block("body")
+            bb_post_while = builder.append_basic_block("post_while")
+            builder.branch(bb_cond)
+
+            builder.position_at_end(bb_cond)
+            cond, cond_llty = self._jit_compile(ast.condition, builder, dtypes, vars, context, bb_allocas)
+            sw = builder.switch(cond, bb_body)
+            sw.add_case(llvm_ir.Constant(cond_llty, 0), bb_post_while)
+
+            builder.position_at_end(bb_body)
+            self._jit_compile(ast.body, builder, dtypes, vars, context, bb_allocas)
+            builder.branch(bb_cond)
+            builder.position_at_end(bb_post_while)
+        elif isinstance(ast, Function):
+            raise JitCompError(
+                "higher-order functions don't support being jit-compiled"
+            )
+        elif isinstance(ast, FunctionCall):
+            # jit compile inner function
+            types = tuple(self._get_type(arg, dtypes) for arg in ast.arguments)
+            f_res = ast.function_resolvable
+            if isinstance(f_res, Variable):
+                fn = context.get(f_res.identifier.name)
+                if not fn or not isinstance(fn.value, Function):
+                    raise JitCompError(
+                        "use of undefined name '"
+                        + str(f_res.identifier.name)
+                        + "': must execute without jit-compilation"
+                    )
+                fn = fn.value
+            elif isinstance(f_res, Function):
+                fn = f_res
+            else:
+                raise JitCompError(
+                    "jit-compiling complex function calling expressions like `(func_list.(2*n + 1))(4)` is not supported"
+                )
+            fn, ret_ty = fn.jit_compile(builder.module, types, context)
+            args = [
+                self._jit_compile(arg, builder, dtypes, vars, context, bb_allocas)[0]
+                for arg in ast.arguments
+            ]
+            return builder.call(fn, args), self._get_llvm_type(ret_ty)
+        elif isinstance(ast, Constant):
+            ty = self._get_llvm_type(ast.value.type)
+            return llvm_ir.Constant(ty, ast.value.value), ty
+        elif isinstance(ast, Variable):
+            if ast.identifier.name not in vars:
+                raise JitCompError(
+                    "usage of potentially unbound variable '"
+                    + ast.identifier.name
+                    + "'"
+                )
+            return builder.load(vars[ast.identifier.name], ast.identifier.name + ".load"), self._get_llvm_type(dtypes[ast.identifier.name])
+        elif isinstance(ast, Operation):
+            if ast.is_unary:
+                common_dtype = self._get_type(ast.right, dtypes)
+                b, common_llty = self._jit_compile(ast.right, builder, dtypes, vars, context, bb_allocas)
+            else:
+                ty_a, ty_b = self._get_type(ast.left, dtypes), self._get_type(
+                    ast.right, dtypes
+                )
+                (a, a_llty), (b, b_llty) = self._jit_compile(
+                    ast.left, builder, dtypes, vars, context, bb_allocas
+                ), self._jit_compile(ast.right, builder, dtypes, vars, context, bb_allocas)
+                a, b, common_llty, common_dtype = self._compatibility_cast(builder, a, b, ty_a, ty_b, a_llty, b_llty)
+
+            if ast.is_unary and ast.operation not in OperationKind._unary:
+                raise RuntimeError("invalid op type for unary op")
+
+            if common_dtype in (DType.BOOL, DType.INT):
+                if ast.operation == OperationKind.ADD:
+                    return builder.add(a, b), common_llty
+                elif ast.operation == OperationKind.SUB:
+                    return builder.sub(a, b), common_llty
+                elif ast.operation == OperationKind.MUL:
+                    return builder.mul(a, b), common_llty
+                elif ast.operation == OperationKind.DIV:
+                    a = builder.sitofp(a, llvm_ir.DoubleType())
+                    b = builder.sitofp(b, llvm_ir.DoubleType())
+                    self._insert_zero_check(builder, b, DType.FLOAT, dtypes["->"])
+                    return builder.fdiv(a, b), llvm_ir.DoubleType()
+                elif ast.operation == OperationKind.IDIV:
+                    self._insert_zero_check(builder, b, common_dtype, dtypes["->"])
+                    div_out = builder.sdiv(a, b)
+                    zero = llvm_ir.Constant(common_llty, 0)
+                    r = builder.zext(builder.xor(
+                        builder.icmp_signed('<', a, zero),
+                        builder.icmp_signed('<', b, zero)
+                    ), common_llty)
+                    return builder.sub(div_out, r), common_llty
+                elif ast.operation == OperationKind.MOD:
+                    self._insert_zero_check(builder, b, common_dtype, dtypes["->"])
+                    return builder.srem(a, b), common_llty
+                elif ast.operation == OperationKind.NOT:
+                    return builder.icmp_signed(
+                        "==", b, llvm_ir.Constant(common_llty, 0)
+                    ), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.EQ:
+                    return builder.icmp_signed("==", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.NEQ:
+                    return builder.icmp_signed("!=", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.LT:
+                    return builder.icmp_signed("<", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.GT:
+                    return builder.icmp_signed(">", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.FLIP:
+                    return builder.not_(b), common_llty
+                elif ast.operation == OperationKind.LTE:
+                    return builder.icmp_signed("<=", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.GTE:
+                    return builder.icmp_signed(">=", a, b), llvm_ir.IntType(1)
+                elif (
+                    ast.operation == OperationKind.OR
+                    or ast.operation == OperationKind.BITOR
+                ):
+                    return builder.or_(a, b), common_llty
+                elif (
+                    ast.operation == OperationKind.AND
+                    or ast.operation == OperationKind.BITAND
+                ):
+                    return builder.and_(a, b), common_llty
+                elif ast.operation == OperationKind.BITXOR:
+                    return builder.xor(a, b), common_llty
+                elif ast.operation == OperationKind.LSH:
+                    return builder.shl(a, b), common_llty
+                elif ast.operation == OperationKind.RSH:
+                    return builder.lshr(a, b), common_llty
+                elif ast.operation == OperationKind.POW:
+                    raise JitCompError("pow jit unsupported at the moment")
+                else:
+                    raise JitCompError("unsupported operation")
+
+            else:
+                if ast.operation == OperationKind.ADD:
+                    return builder.fadd(a, b), common_llty
+                elif ast.operation == OperationKind.SUB:
+                    return builder.fsub(a, b), common_llty
+                elif ast.operation == OperationKind.MUL:
+                    return builder.fmul(a, b), common_llty
+                elif ast.operation == OperationKind.DIV:
+                    self._insert_zero_check(builder, b, common_dtype, dtypes["->"])
+                    return builder.fdiv(a, b), common_llty
+                elif ast.operation == OperationKind.IDIV:
+                    self._insert_zero_check(builder, b, common_dtype, dtypes["->"])
+                    div_out = builder.fdiv(a, b)
+                    r = builder.zext(builder.fcmp_unordered(
+                        '<', div_out, llvm_ir.Constant(llvm_ir.DoubleType(), 0.0)
+                    ), llvm_ir.IntType(64))
+                    floored = builder.sub(builder.fptosi(div_out, llvm_ir.IntType(64)), r)
+                    return floored, llvm_ir.IntType(64)
+                elif ast.operation == OperationKind.MOD:
+                    self._insert_zero_check(builder, b, common_dtype, dtypes["->"])
+                    return builder.frem(a, b), common_llty
+                elif ast.operation == OperationKind.NOT:
+                    return builder.fcmp_unordered(
+                        "==", b, llvm_ir.Constant(llvm_ir.DoubleType(), 0.0)
+                    ), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.EQ:
+                    return builder.fcmp_unordered("==", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.NEQ:
+                    return builder.fcmp_unordered("!=", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.LT:
+                    return builder.fcmp_unordered("<", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.GT:
+                    return builder.fcmp_unordered(">", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.FLIP:
+                    raise JitCompError("Cannot bitflip floating-point number")
+                elif ast.operation == OperationKind.LTE:
+                    return builder.fcmp_unordered("<=", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.GTE:
+                    return builder.fcmp_unordered(">=", a, b), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.OR:
+                    return builder.or_(
+                        builder.fcmp_unordered(
+                            "!=", a, llvm_ir.Constant(llvm_ir.DoubleType(), 0.0)
+                        ),
+                        builder.fcmp_unordered(
+                            "!=", b, llvm_ir.Constant(llvm_ir.DoubleType(), 0.0)
+                        ),
+                    ), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.AND:
+                    return builder.and_(
+                        builder.fcmp_unordered(
+                            "!=", a, llvm_ir.Constant(llvm_ir.DoubleType(), 0.0)
+                        ),
+                        builder.fcmp_unordered(
+                            "!=", b, llvm_ir.Constant(llvm_ir.DoubleType(), 0.0)
+                        ),
+                    ), llvm_ir.IntType(1)
+                elif ast.operation == OperationKind.BITOR:
+                    raise JitCompError("cannot bitwise-or floating-point numbers")
+                elif ast.operation == OperationKind.BITAND:
+                    raise JitCompError("cannot bitwise-and floating-point numbers")
+                elif ast.operation == OperationKind.BITXOR:
+                    raise JitCompError("cannot bitwise-xor floating-point numbers")
+                elif ast.operation == OperationKind.LSH:
+                    raise JitCompError("cannot left shift floating-point numbers")
+                elif ast.operation == OperationKind.RSH:
+                    raise JitCompError("cannot right shift floating-point numbers")
+                elif ast.operation == OperationKind.POW:
+                    raise JitCompError("pow jit unsupported at the moment")
+                else:
+                    raise JitCompError("unsupported operation")
+
+        elif isinstance(ast, Expression):
+            return self._jit_compile(ast.expression, builder, dtypes, vars, context, bb_allocas)
+        else:
+            raise RuntimeError(f"unknown ast node type {type(ast)}")
+        return None, None
+
+    def jit_compile(
+        self,
+        module: "llvm_ir.Module",
+        input_types: Tuple["DType.ty", ...],
+        context: "Context",
+        is_main: bool = False,
+    ) -> tuple["llvm_ir.Function", "DType.ty"]:
+        if llvm_ir is None or llvm_binding is None:
+            raise JitCompError("llvmlite not installed")
+        if input_types not in self.jit_cache:
+            allowed_ext_bounds = self.bounds.copy()
+            statically_def_vars = self.get_statically_defined_vars()
+            for ident in itertools.chain(
+                map(lambda i: i.name, self.arguments),
+                statically_def_vars
+            ):
+                if ident in allowed_ext_bounds:
+                    allowed_ext_bounds.pop(ident)
+
+            illegal_arg_types = (
+                DType.FUNCTION,
+                DType.STRUCT_TYPE,
+                DType.EXTERN_PYTHON,
+                DType.PY_OBJ,
+                DType.TABLE,
+                DType.STRING,
+                DType.LIST,  # TODO maybe support this
+                DType.UNIT,  # this too?
+            )
+            # TODO I should try to support function bounds
+            # illegal_bound_types = (
+            #     DType.FUNCTION,
+            #     DType.STRUCT_TYPE,
+            #     DType.EXTERN_PYTHON,
+            #     DType.PY_OBJ,
+            #     DType.TABLE,
+            #     DType.STRING,
+            #     DType.LIST,
+            # )
+            illegal_bound_types = (PhantomType(),)
+            # pyffi makes this complicated or maybe impossible; for now, I will assume here that pyffi functions do not modify the ast of lcaml functions.
+            # However, this may not be true. TODO can I come up with some way to avoid this problem that does not require me to hash the entire ast recursively?
+            for v in allowed_ext_bounds.values():
+                if v is None:
+                    raise JitCompError(
+                        "cannot jit-compile functions with unresolved bounds"
+                    )
+                elif v.type in illegal_bound_types:
+                    raise JitCompError(
+                        f"jit-compiling functions with bounds of type {DType.name(v.type)} is unsupported"
+                    )
+
+            allowed_bounds_dtypes = {
+                n: obj.type for n, obj in allowed_ext_bounds.items()
+            }
+            dtypes = {
+                arg: dtype
+                for arg, dtype in itertools.chain(
+                    zip((arg.name for arg in self.arguments), input_types),
+                    allowed_bounds_dtypes.items(),
+                )
+            }
+            for dt in dtypes.values():
+                if dt in illegal_arg_types:
+                    raise JitCompError(
+                        f"compiling functions with non-primitive input parameter types is unsupported: got input of type {DType.name(dt)}"
+                    )
+
+            arg_llvm_types = [
+                self._get_llvm_type(dtype)
+                for dtype in input_types
+            ] + [llvm_ir.PointerType(llvm_ir.IntType(64))]
+            ret_type = Function._get_ret_type(self.body, context, dtypes)
+            must_insert_ret_void = False
+            if ret_type is None:
+                must_insert_ret_void = True
+                ret_type = DType.UNIT
+            dtypes["->"] = ret_type
+            ret_llvm_type = self._get_llvm_type(ret_type)
+            func_ty = llvm_ir.FunctionType(ret_llvm_type, arg_llvm_types)
+            func = llvm_ir.Function(module, func_ty, "main" if is_main else "")
+            bb_allocas = func.append_basic_block("allocas")
+            builder = llvm_ir.IRBuilder(bb_allocas)
+
+            vars = {
+                arg.name: builder.alloca(func.args[i].type, name=arg.name)
+                for i, arg in enumerate(self.arguments)
+            }
+
+            bb_entry = builder.append_basic_block("entry")
+            builder.position_at_end(bb_entry)
+
+            for v, alloca in zip(func.args, vars.values()):
+                builder.store(v, alloca)
+            try:
+                self._jit_compile(self.body, builder, dtypes, vars, context, bb_allocas)
+                if must_insert_ret_void:
+                    builder.ret_void()
+                builder.position_at_end(bb_allocas)
+                builder.branch(bb_entry)
+            except JitCompError as e:
+                # try to decouple the failed function from the module
+                module.globals.pop(func.name)
+                raise e
+
+            self.jit_cache[input_types] = func, ret_type
+        return self.jit_cache[input_types]
+
+    def jit_compile_main(
+        self,
+        input_types: Tuple["DType.ty"],
+        context: "Context",
+    ) -> tuple[int, "DType.ty"]:
+        if input_types not in self.func_ptr_ret_ty_cache:
+            try:
+                ir_mod = llvm_ir.Module()
+                main_func, ret_type = self.jit_compile(
+                    ir_mod, input_types, context, is_main=True
+                )
+                # convert the IR mod to a binding mod (yes, emitting and re-parsing LLVM IR is the recommended way of doing that as per documentation)
+                func_ptr = compile_llvm_module(ir_mod, main_func.name)
+            except Exception as e:
+                self.func_ptr_ret_ty_cache[input_types] = e
+                raise e
+            else:
+                self.func_ptr_ret_ty_cache[input_types] = func_ptr, ret_type
+                return func_ptr, ret_type
+
+        ret = self.func_ptr_ret_ty_cache[input_types]
+        if isinstance(ret, Exception):
+            raise ret
+        return ret
+
+    def get_statically_defined_vars(self) -> List[str]:
+        # TODO I could do advanced CF analysis here, but for now, I'll just return those vars defined at the top of the file
+        out = []
+        for ast in self.body.statements:
+            if ast.type == parser_types.AstStatementType.ASSIGNMENT:
+                out.append(ast.value.identifier.name)
+            else:
+                break
+        return out
+
     def resolve(self, context: Context) -> Object:
-        # if this is called, it's probably trying to resolve identifier but actually already has function
         # use context to resolve bounds
         intersecting_keys = self.bounds.keys() & context.keys()
         for key in intersecting_keys:
             self.bounds[key] = context[key]
         ret = Object(DType.FUNCTION, self)
-        this = parser_types.AstIdentifier(
-            Token(TokenKind.IDENTIFIER, self._syntax._this_keyword)
-        )
-        self.bounds[this] = ret
+        if self._syntax._this_intrinsic in self.bounds:
+            self.bounds[self._syntax._this_intrinsic] = ret
         return ret
 
     @classmethod
@@ -204,12 +884,15 @@ class Function(AstRelated, Resolvable):
         )
         remaining_stream.pop(0)  # remove RCURLY
         body, symbols_used = lcaml_parser.Ast.from_stream(body_stream, syntax)
+
+        source_file = getattr(stream, "__file") if hasattr(stream, "__file") else "<unknown>"
         return (
             cls(
                 body,
                 arguments,
-                map(lambda variable: variable.identifier, symbols_used),
+                map(lambda variable: variable.identifier.name, symbols_used),
                 syntax,
+                source_file,
             ),
             remaining_stream,
             symbols_used,
@@ -238,12 +921,11 @@ class Operation(AstRelated, Resolvable):
         )
 
     def to_python(self):
-        # FIXME actually, there can be a pre and post inserts. they should be \n joined and bubbled up
         if self.is_unary:
             pre_insert, expr, post_insert = self.right.to_python()
             return (
                 pre_insert,
-                f"{OPKIND_TO_SYMBOL[self.operation]}({expr})",
+                f"{OPKIND_TO_PYTHON_SYMBOL[self.operation]}({expr})",
                 post_insert,
             )
         else:
@@ -256,7 +938,7 @@ class Operation(AstRelated, Resolvable):
             left, right = exprs
             return (
                 pre_insert,
-                f"{left} {OPKIND_TO_SYMBOL[self.operation]} {right}",
+                f"({left} {OPKIND_TO_PYTHON_SYMBOL[self.operation]} {right})",
                 post_insert,
             )
 
@@ -281,6 +963,8 @@ class Operation(AstRelated, Resolvable):
             return left.mul(right)
         elif self.operation == OperationKind.DIV:
             return left.div(right)
+        elif self.operation == OperationKind.IDIV:
+            return left.idiv(right)
         elif self.operation == OperationKind.POW:
             return left.pow(right)
         elif self.operation == OperationKind.MOD:
@@ -309,6 +993,12 @@ class Operation(AstRelated, Resolvable):
             return left.bitor(right)
         elif self.operation == OperationKind.BITAND:
             return left.bitand(right)
+        elif self.operation == OperationKind.BITXOR:
+            return left.bitxor(right)
+        elif self.operation == OperationKind.RSH:
+            return left.rsh(right)
+        elif self.operation == OperationKind.LSH:
+            return left.lsh(right)
         else:
             raise ValueError(f"Unknown operation type {self.operation}")
 
@@ -591,7 +1281,7 @@ class FieldAccess(AstRelated, Resolvable):
     def to_python(self) -> tuple[str, str, str]:
         return (
             "",
-            f'{expect_only_expression(self.object.to_python())}["{expect_only_expression(self.field.to_python())}"]',
+            f'({expect_only_expression(self.object.to_python())}["{expect_only_expression(self.field.to_python())}"])',
             "",
         )
 
@@ -603,7 +1293,7 @@ class FieldAccess(AstRelated, Resolvable):
             return obj.get(self.field)
         else:
             raise TypeError(
-                f"Internal Error: Cannot access field {self.field} on non-struct {obj}"
+                f"Internal Error: Cannot access field {self.field} on non-struct/table {obj}"
             )
 
 
@@ -617,7 +1307,10 @@ class FunctionCall(AstRelated, Resolvable):
     """
 
     def __init__(
-        self, fuction_resolvable: Resolvable, arguments: List, syntax: Syntax = Syntax()
+        self,
+        fuction_resolvable: Resolvable,
+        arguments: List["Expression"],
+        syntax: Syntax = Syntax(),
     ):
         """
         Resolved by spawning a new interpreter_vm_mod.InterpreterVM
@@ -659,9 +1352,41 @@ class FunctionCall(AstRelated, Resolvable):
         )
         return (
             pre_insert,
-            f_expr,
+            "(" + f_expr + ")",
             post_insert,
         )
+
+    @staticmethod
+    def to_c_type(ty: "DType.ty"):
+        if ty == DType.FLOAT:
+            return c_double
+        elif ty == DType.INT:
+            return c_int64
+        elif ty == DType.BOOL:
+            return c_bool
+        else:
+            raise TypeError("cannot convert to ctype")
+
+    @staticmethod
+    def c_call(func, args, out_type):
+        # Run the function via ctypes
+        cfunc = CFUNCTYPE(
+            None if out_type == DType.UNIT else FunctionCall.to_c_type(out_type),
+            *([FunctionCall.to_c_type(arg.type) for arg in args] + [POINTER(c_int64)]),
+        )(func)
+        err_out_param = c_int64()
+        res = cfunc(*(pyffi._lcaml_to_python(arg) for arg in args), c_byref(err_out_param))
+        ec = err_out_param.value
+        exc = C_CALL_ERR_EXCEPTIONS.get(ec)
+        if exc is not None:
+            e = exc()
+            if not hasattr(e, "__lcaml_traceback_info"):
+                setattr(e, "__lcaml_traceback_info", [])
+            getattr(e, "__lcaml_traceback_info").append(
+                "Exception was raised inside of JIT-compiled function and no traceback could be generated. To get a full one, try disabling the JIT compiler."
+            )
+            raise e
+        return pyffi._python_to_lcaml(res)
 
     def resolve(self, context: Context) -> Optional[Object]:
         """
@@ -676,7 +1401,6 @@ class FunctionCall(AstRelated, Resolvable):
         Raises:
             TypeError: Cannot call non-function
         """
-        # resolve function if it is identifier
         function = self.function_resolvable.resolve(context)
         if isinstance(function, Object):
             function = function.value
@@ -685,7 +1409,7 @@ class FunctionCall(AstRelated, Resolvable):
         resolved_args = [arg.resolve(context) for arg in self.arguments]
 
         if isinstance(function, Function):
-            arg_locals = zip(function.arguments, resolved_args)
+            arg_locals = zip((arg.name for arg in function.arguments), resolved_args)
 
             if len(resolved_args) < len(function.arguments):
                 # not all args provided -> return curried function
@@ -694,26 +1418,55 @@ class FunctionCall(AstRelated, Resolvable):
                 # add curried args to bounds
                 bounds = function.bounds.copy()
                 bounds.update(arg_locals)
-                result = Function(function.body, remaining_args, bounds, self._syntax)
+                result = Function(function.body, remaining_args, bounds, self._syntax, function._file)
                 return Object(DType.FUNCTION, result)
             else:
                 # all args provided -> execute function
                 # create local context
                 local_context = context.copy()
                 # functions can bind to global values
-                non_none_bounds = {
-                    k: v for k, v in function.bounds.items() if v is not None
-                }
-                local_context.update(non_none_bounds)
+                bounds = {k: v for k, v in function.bounds.items() if v is not None}
                 # overwrite variables from outer context with local args
-                local_context.update(arg_locals)
+                bounds.update(arg_locals)
+                # add call-time bounds (arguments) and creation-time bounds
+                local_context.update(bounds)
+
+                # try to JIT compile function
+                if not SUPPRESS_JIT and (function.force_jit or JIT_BY_DEFAULT) and "llvm_ir" in globals() and "llvm_binding" in globals():
+                    try:
+                        # TODO maybe try to pass in bounds as parameters?
+                        arg_types = tuple(arg.type for arg in resolved_args)
+                        func_ptr, ret_type = function.jit_compile_main(
+                            arg_types, local_context
+                        )
+                        result = FunctionCall.c_call(
+                            func_ptr, list(bounds.values()), ret_type
+                        )
+                        return result
+                    except JitCompError as e:
+                        if function.force_jit:
+                            raise e
+                elif not SUPPRESS_JIT and function.force_jit:
+                    raise RuntimeError("llvmlite not installed: cannot use jit compiler")
+
                 # spawn new interpreter vm
+                base_vm_obj = context.get(Syntax._vm_intrinsic)
+                if not base_vm_obj or base_vm_obj.type != DType.PY_OBJ or not isinstance(base_vm_obj.value, interpreter_vm_mod.InterpreterVM):
+                    raise RuntimeError(f"{Syntax._vm_intrinsic} does not store exist or does not store the current vm")
+                base_vm: "interpreter_vm_mod.InterpreterVM" = base_vm_obj.value
                 interpreter_vm = interpreter_vm_mod.InterpreterVM(
-                    function.body, local_context
+                    function.body,
+                    local_context,
+                    base_vm,
+                    base_vm.line_callbacks,
+                    base_vm.next_step_callbacks,
+                    function._file,
+                    _causes_traceback_entry=True,
+                    _enable_vm_callbacks=base_vm._enable_vm_callbacks,
                 )
                 interpreter_vm.execute()
                 result = interpreter_vm.return_value
-                return result
+                return result if result is not None else Object(DType.UNIT, None)
 
         elif isinstance(function, extern_python.ExternPython):
             return function.execute(context.copy(), resolved_args)
@@ -738,12 +1491,12 @@ class Variable(AstRelated, Resolvable):
 
     def to_python(self):
         ident = expect_only_expression(self.identifier.to_python())
-        return "", f'_ad7aaf167f237a94dc2c3ad2["{ident}"]', ""
+        return "", f'(_ad7aaf167f237a94dc2c3ad2["{ident}"])', ""
 
     def resolve(self, context: Context):
-        result = context.get(self.identifier)
+        result = context.get(self.identifier.name)
         if result is None:
-            raise RuntimeError(f"LCamlNameError: {self.identifier} is undefined")
+            raise RuntimeError(f"{self.identifier} is undefined")
         return result
 
 
@@ -841,13 +1594,8 @@ class Expression(AstRelated, Resolvable):
             2. Identify function calls
             (3.x) Fill out operations with their args:
                 3.1 . (field access)
-                3.2. ! ~
-                3.3 **
-                3.4. * / % & |
-                3.5. + -
-                3.6 | &
-                3.7. == != < > <= >=
-                3.8. || &&
+                3.2. ! ~ - (unary ops)
+                3.3 binary ops according to precedence table (hardcoded in function, really easy to find in source code)
 
         Args:
             stream: stream (only of Expression) to build from
@@ -954,18 +1702,21 @@ class Expression(AstRelated, Resolvable):
                 thing.field = right
 
             this_pass_buffer.append(thing)
-        # stage one of third pass (unary): ! ~
+        # stage one of third pass (unary): ! ~ -
         this_pass_buffer, prev_pass_buffer = [], this_pass_buffer
         while prev_pass_buffer:
             thing = prev_pass_buffer.pop(0)
 
             if isinstance(thing, Operation):
-                if thing.is_unary:
+                is_unary_minus = thing.operation == OperationKind.SUB and not this_pass_buffer
+                if thing.is_unary or is_unary_minus:
                     # NOTE: unary operands are always on the right
                     if not prev_pass_buffer:
                         raise ValueError("Unary operand must have right operand")
                     right = prev_pass_buffer.pop(0)
                     thing.right = right  # thing is unary operation
+                    if is_unary_minus:
+                        thing.left = Constant(Token(TokenKind.INTEGER, "0"))
 
             this_pass_buffer.append(thing)
 
@@ -975,6 +1726,7 @@ class Expression(AstRelated, Resolvable):
             (
                 OperationKind.MUL,
                 OperationKind.DIV,
+                OperationKind.IDIV,
                 OperationKind.MOD,
             ),
             (
@@ -982,8 +1734,17 @@ class Expression(AstRelated, Resolvable):
                 OperationKind.SUB,
             ),
             (
-                OperationKind.BITOR,
+                OperationKind.LSH,
+                OperationKind.RSH,
+            ),
+            (
                 OperationKind.BITAND,
+            ),
+            (
+                OperationKind.BITXOR,
+            ),
+            (
+                OperationKind.BITOR,
             ),
             (
                 OperationKind.EQ,
@@ -994,8 +1755,10 @@ class Expression(AstRelated, Resolvable):
                 OperationKind.GTE,
             ),
             (
-                OperationKind.OR,
                 OperationKind.AND,
+            ),
+            (
+                OperationKind.OR,
             ),
         )
         for pass_operations in sorted_pass_operations:
