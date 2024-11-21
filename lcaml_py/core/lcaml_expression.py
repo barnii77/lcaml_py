@@ -64,7 +64,7 @@ def compile_llvm_module(ir_mod, main_func_name) -> int:
     """
     # TODO optimization pipeline
     llasm = str(ir_mod)
-    print(llasm)
+    # print(llasm)
     binding_mod = llvm_binding.parse_assembly(llasm)
     binding_mod.verify()
     LLVM_EXECUTION_ENGINE.add_module(binding_mod)
