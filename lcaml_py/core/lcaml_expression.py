@@ -38,7 +38,7 @@ try:
         backing_mod, target_machine
     )
 except Exception:
-    raise RuntimeError("TODO make this not crash")  # TODO make this not crash but just not allow jit comp
+    pass
 
 
 def create_execution_engine():
@@ -62,11 +62,20 @@ def compile_llvm_module(ir_mod, main_func_name) -> int:
     From the compiled module object, the main function is extracted
     and a function pointer to it is returned as an int.
     """
-    # TODO optimization pipeline
-    llasm = str(ir_mod)
-    # print(llasm)
-    binding_mod = llvm_binding.parse_assembly(llasm)
+    binding_mod = llvm_binding.parse_assembly(str(ir_mod))
     binding_mod.verify()
+
+    if DEBUG_PRINT_UNOPTIMIZED_LLVM_IR:
+        print(str(binding_mod))
+
+    pto = llvm_binding.create_pipeline_tuning_options(JIT_OPT_LEVEL)
+    pb = llvm_binding.create_pass_builder(target_machine, pto)
+    mpm = pb.getModulePassManager()
+    mpm.run(binding_mod, pb)
+
+    if DEBUG_PRINT_OPTIMIZED_LLVM_IR:
+        print(str(binding_mod))
+
     LLVM_EXECUTION_ENGINE.add_module(binding_mod)
     LLVM_EXECUTION_ENGINE.finalize_object()
     LLVM_EXECUTION_ENGINE.run_static_constructors()
@@ -77,6 +86,8 @@ COMPILE_WITH_CONTEXT_LEAKING = True
 JIT_BY_DEFAULT = False
 SUPPRESS_JIT = False
 JIT_OPT_LEVEL = 2
+DEBUG_PRINT_OPTIMIZED_LLVM_IR = False
+DEBUG_PRINT_UNOPTIMIZED_LLVM_IR = False
 C_CALL_ERR_CODES = {ZeroDivisionError: 1}
 C_CALL_ERR_EXCEPTIONS = {v: k for k, v in C_CALL_ERR_CODES.items()}
 
