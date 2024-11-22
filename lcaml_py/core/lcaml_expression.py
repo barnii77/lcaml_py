@@ -68,10 +68,16 @@ def compile_llvm_module(ir_mod, main_func_name) -> int:
     if DEBUG_PRINT_UNOPTIMIZED_LLVM_IR:
         print(str(binding_mod))
 
-    pto = llvm_binding.create_pipeline_tuning_options(JIT_OPT_LEVEL)
-    pb = llvm_binding.create_pass_builder(target_machine, pto)
-    mpm = pb.getModulePassManager()
-    mpm.run(binding_mod, pb)
+    try:
+        pto = llvm_binding.create_pipeline_tuning_options(JIT_OPT_LEVEL)
+        pb = llvm_binding.create_pass_builder(target_machine, pto)
+        mpm = pb.getModulePassManager()
+        mpm.run(binding_mod, pb)
+    except AttributeError as e:
+        if not hasattr(e, "__lcaml_traceback_info"):
+            setattr(e, "__lcaml_traceback_info", [])
+        getattr(e, "__lcaml_traceback_info").append("Check if you installed the dev version of llvmlite from conda according to the `Setup` section of README.md")
+        raise e
 
     if DEBUG_PRINT_OPTIMIZED_LLVM_IR:
         print(str(binding_mod))
