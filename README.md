@@ -1,16 +1,9 @@
 # Description
-An interpreter written in python for a custom language LCaml.
-LCaml is an incomplete, terribly slow, lua-style functional programming language.
-Note that I did only little prep for this project (know basic steps of interpreter) and did not read a book or something for this project, I kinda just did what seemed the most obvious to me. Therefore, I might have made some unusual decisions.
+An interpreter written in python for my toy language LCaml. LCaml is an incomplete, terribly slow, lua-style functional programming language (although it has a jit compiler and can be transpiled to python, which helps with the original speed problem).
 
 # Setup
 1. Clone the repo: `git clone https://github.com/barnii77/lcaml_py`
 2. Install the newest version of llvmlite (required only if you want to use the jit compiler): `conda install -c numba/label/dev llvmlite`
-
-# LCaml language concept
-LCaml is an esoteric interpreted programming language written primarily to troll my programming teacher in school.
-This is also one of the main reasons to write the interpreter in python as opposed to a more suitable language.
-However, I might come back to LCaml in the future and write an interpreter in Rust, maybe even a compiler.
 
 # LCaml foundation (lol)
 The arch nemesis of the rust foundation, the LCaml foundation can be found here: https://discord.gg/bPNDJq9zmg
