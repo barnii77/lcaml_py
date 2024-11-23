@@ -21,11 +21,11 @@ from .lcaml_utils import (
 from .interpreter_types import Object, DType
 from .operation_kind import OperationKind
 from typing import List, Dict, Optional, Set, Iterable, Any, Tuple, Union
-from ctypes import CFUNCTYPE, c_double, c_int64, c_bool, POINTER, byref as c_byref
 
 try:
     import llvmlite.ir as llvm_ir
     import llvmlite.binding as llvm_binding
+    from ctypes import CFUNCTYPE, c_double, c_int64, c_bool, POINTER, byref as c_byref
 
     llvm_binding.initialize()
     llvm_binding.initialize_native_target()
