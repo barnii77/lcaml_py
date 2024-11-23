@@ -1,11 +1,12 @@
-import hashlib
+import random
+import string
 from typing import List
 from .token_type import TokenKind, Token
 
 
 LCAML_RECURSION_LIMIT = 2**31 - 1
 _uuid = 0
-NAME_GEN_N_HASH_DIGITS = 24
+NAME_GEN_N_RAND_CHARS = 24
 TokenStream = List[Token]
 
 
@@ -20,7 +21,8 @@ def get_marked_code_snippet(code_lines, marked_line_idx, window_size=1):
     printed_line_nums = list(
         range(
             clip(round(marked_line_idx - window_size + 0.1), 0, len(code_lines) - 1),
-            clip(round(marked_line_idx + window_size + 0.1), 0, len(code_lines) - 1) + 1,
+            clip(round(marked_line_idx + window_size + 0.1), 0, len(code_lines) - 1)
+            + 1,
         )
     )
     max_line_num_len = max(map(lambda x: len(str(x + 1)), printed_line_nums))
@@ -48,7 +50,8 @@ def get_unique_name():
     _uuid += 1
     return (
         "_"
-        + hashlib.md5(str(_uuid).encode("utf-8")).hexdigest()[:NAME_GEN_N_HASH_DIGITS]
+        + "".join(random.choices(string.hexdigits, k=NAME_GEN_N_RAND_CHARS))
+        + str(_uuid)
     )
 
 
