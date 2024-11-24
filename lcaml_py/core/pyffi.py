@@ -13,7 +13,9 @@ COMPILE_WITH_CONTEXT_LEAKING = True
 
 
 def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
-    if lcaml_obj.type == DType.INT:
+    if lcaml_obj is None:
+        return None
+    elif lcaml_obj.type == DType.INT:
         return int(lcaml_obj.value)
     elif lcaml_obj.type == DType.FLOAT:
         return float(lcaml_obj.value)
@@ -63,10 +65,10 @@ def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
 
 def _python_to_lcaml(py_obj, interpreter_vm=None, wrap_extern_py=True):
     # NOTE: isinstance(True, int) returns True (and maybe some other weird stuff), therefore, use exact types
-    if type(py_obj) is int:
-        return Object(DType.INT, py_obj)
-    elif py_obj is None:
+    if py_obj is None:
         return Object(DType.UNIT, None)
+    elif type(py_obj) is int:
+        return Object(DType.INT, py_obj)
     elif type(py_obj) is float:
         return Object(DType.FLOAT, py_obj)
     elif type(py_obj) is str:
