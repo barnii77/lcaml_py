@@ -178,8 +178,7 @@ def cmd_clear_handler(
 
 
 def get_call_stack_traceback(call_stack) -> str:
-    tb_lines = []
-    tb_lines.append("LCaml Traceback (most recent call last):")
+    tb_lines = ["LCaml Traceback (most recent call last):"]
     code_lines = None
     for loc in reversed(call_stack):
         if isinstance(loc, interpreter_mod.Interpreter):

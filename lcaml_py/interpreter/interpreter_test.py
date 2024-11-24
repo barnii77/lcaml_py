@@ -6,8 +6,7 @@ import core
 
 
 def get_lcaml_traceback(exc: Exception) -> str:
-    tb_lines = []
-    tb_lines.append("LCaml Traceback (most recent call last):")
+    tb_lines = ["LCaml Traceback (most recent call last):"]
     if not hasattr(exc, "__lcaml_traceback_info"):
         print("Unable to construct lcaml traceback.")
     else:
