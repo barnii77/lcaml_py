@@ -22,38 +22,51 @@ from .interpreter_types import Object, DType
 from .operation_kind import OperationKind
 from typing import List, Dict, Optional, Set, Iterable, Any, Tuple, Union
 
-try:
-    import llvmlite.ir as llvm_ir
-    import llvmlite.binding as llvm_binding
-    from ctypes import CFUNCTYPE, c_double, c_int64, c_bool, POINTER, byref as c_byref
-
-    llvm_binding.initialize()
-    llvm_binding.initialize_native_target()
-    llvm_binding.initialize_native_asmprinter()
-    target = llvm_binding.Target.from_default_triple()
-    target_machine = target.create_target_machine()
-    # And an execution engine with an empty backing module
-    backing_mod = llvm_binding.parse_assembly("")
-    LLVM_EXECUTION_ENGINE = llvm_binding.create_mcjit_compiler(
-        backing_mod, target_machine
-    )
-except Exception:
-    pass
+COMPILE_WITH_CONTEXT_LEAKING = True
+JIT_BY_DEFAULT = False
+SUPPRESS_JIT = False
+JIT_OPT_LEVEL = 2
+DEBUG_PRINT_OPTIMIZED_LLVM_IR = False
+DEBUG_PRINT_UNOPTIMIZED_LLVM_IR = False
+C_CALL_ERR_CODES = {ZeroDivisionError: 1}
+C_CALL_ERR_EXCEPTIONS = {v: k for k, v in C_CALL_ERR_CODES.items()}
 
 
-def create_execution_engine():
-    """
-    Create an ExecutionEngine suitable for JIT code generation on
-    the host CPU.  The engine is reusable for an arbitrary number of
-    modules.
-    """
-    # Create a target machine representing the host
-    target = llvm_binding.Target.from_default_triple()
-    target_machine = target.create_target_machine()
-    # And an execution engine with an empty backing module
-    backing_mod = llvm_binding.parse_assembly("")
-    engine = llvm_binding.create_mcjit_compiler(backing_mod, target_machine)
-    return engine
+# lazy initialization of llvmlite (brython cannot catch the import error, so this is needed)
+def initialize_llvmlite():
+    if SUPPRESS_JIT:
+        return
+
+    g = globals()
+    try:
+        import llvmlite.ir as llvm_ir
+        import llvmlite.binding as llvm_binding
+        from ctypes import CFUNCTYPE, c_double, c_int64, c_bool, POINTER, byref as c_byref
+
+        llvm_binding.initialize()
+        llvm_binding.initialize_native_target()
+        llvm_binding.initialize_native_asmprinter()
+        target = llvm_binding.Target.from_default_triple()
+        target_machine = target.create_target_machine()
+        # And an execution engine with an empty backing module
+        backing_mod = llvm_binding.parse_assembly("")
+        LLVM_EXECUTION_ENGINE = llvm_binding.create_mcjit_compiler(
+            backing_mod, target_machine
+        )
+    except Exception:
+        pass
+    else:
+        g["llvm_ir"] = llvm_ir
+        g["llvm_binding"] = llvm_binding
+        g["CFUNCTYPE"] = CFUNCTYPE
+        g["c_double"] = c_double
+        g["c_int64"] = c_int64
+        g["c_bool"] = c_bool
+        g["POINTER"] = POINTER
+        g["c_byref"] = c_byref
+        g["target"] = target
+        g["target_machine"] = target_machine
+        g["LLVM_EXECUTION_ENGINE"] = LLVM_EXECUTION_ENGINE
 
 
 def compile_llvm_module(ir_mod, main_func_name) -> int:
@@ -87,15 +100,6 @@ def compile_llvm_module(ir_mod, main_func_name) -> int:
     LLVM_EXECUTION_ENGINE.run_static_constructors()
     return LLVM_EXECUTION_ENGINE.get_function_address(main_func_name)
 
-
-COMPILE_WITH_CONTEXT_LEAKING = True
-JIT_BY_DEFAULT = False
-SUPPRESS_JIT = False
-JIT_OPT_LEVEL = 2
-DEBUG_PRINT_OPTIMIZED_LLVM_IR = False
-DEBUG_PRINT_UNOPTIMIZED_LLVM_IR = False
-C_CALL_ERR_CODES = {ZeroDivisionError: 1}
-C_CALL_ERR_EXCEPTIONS = {v: k for k, v in C_CALL_ERR_CODES.items()}
 
 TokenStream = List[Token]
 Context = Dict[str, Object]
@@ -134,7 +138,7 @@ OPKIND_TO_PYTHON_SYMBOL = {
     OperationKind.DIV: "/",
     OperationKind.IDIV: "//",
     OperationKind.MOD: "%",
-    OperationKind.NOT: "!",
+    OperationKind.NOT: "not",
     OperationKind.EQ: "==",
     OperationKind.NEQ: "!=",
     OperationKind.LT: "<",
@@ -189,7 +193,6 @@ class Function(AstRelated, Resolvable):
         self.arguments = arguments
         self._syntax = syntax
         self.jit_cache = {}
-        self.func_ptr_ret_ty_cache = {}
         self._file = _file
         self.force_jit = force_jit
         if isinstance(bounds, dict):
@@ -708,111 +711,110 @@ class Function(AstRelated, Resolvable):
     ) -> tuple["llvm_ir.Function", "DType.ty"]:
         if llvm_ir is None or llvm_binding is None:
             raise JitCompError("llvmlite not installed")
-        if input_types not in self.jit_cache:
-            allowed_ext_bounds = self.bounds.copy()
-            statically_def_vars = self.get_statically_defined_vars()
-            for ident in itertools.chain(
-                map(lambda i: i.name, self.arguments),
-                statically_def_vars
-            ):
-                if ident in allowed_ext_bounds:
-                    allowed_ext_bounds.pop(ident)
 
-            illegal_arg_types = (
-                DType.FUNCTION,
-                DType.STRUCT_TYPE,
-                DType.EXTERN_PYTHON,
-                DType.PY_OBJ,
-                DType.TABLE,
-                DType.STRING,
-                DType.LIST,  # TODO maybe support this
-                DType.UNIT,  # this too?
-            )
-            # TODO I should try to support function bounds
-            # illegal_bound_types = (
-            #     DType.FUNCTION,
-            #     DType.STRUCT_TYPE,
-            #     DType.EXTERN_PYTHON,
-            #     DType.PY_OBJ,
-            #     DType.TABLE,
-            #     DType.STRING,
-            #     DType.LIST,
-            # )
-            illegal_bound_types = (PhantomType(),)
-            # pyffi makes this complicated or maybe impossible; for now, I will assume here that pyffi functions do not modify the ast of lcaml functions.
-            # However, this may not be true. TODO can I come up with some way to avoid this problem that does not require me to hash the entire ast recursively?
-            for v in allowed_ext_bounds.values():
-                if v is None:
-                    raise JitCompError(
-                        "cannot jit-compile functions with unresolved bounds"
-                    )
-                elif v.type in illegal_bound_types:
-                    raise JitCompError(
-                        f"jit-compiling functions with bounds of type {DType.name(v.type)} is unsupported"
-                    )
+        allowed_ext_bounds = self.bounds.copy()
+        statically_def_vars = self.get_statically_defined_vars()
+        for ident in itertools.chain(
+            map(lambda i: i.name, self.arguments),
+            statically_def_vars
+        ):
+            if ident in allowed_ext_bounds:
+                allowed_ext_bounds.pop(ident)
 
-            allowed_bounds_dtypes = {
-                n: obj.type for n, obj in allowed_ext_bounds.items()
-            }
-            dtypes = {
-                arg: dtype
-                for arg, dtype in itertools.chain(
-                    zip((arg.name for arg in self.arguments), input_types),
-                    allowed_bounds_dtypes.items(),
+        illegal_arg_types = (
+            DType.FUNCTION,
+            DType.STRUCT_TYPE,
+            DType.EXTERN_PYTHON,
+            DType.PY_OBJ,
+            DType.TABLE,
+            DType.STRING,
+            DType.LIST,  # TODO maybe support this
+            DType.UNIT,  # this too?
+        )
+        # TODO I should try to support function bounds
+        # illegal_bound_types = (
+        #     DType.FUNCTION,
+        #     DType.STRUCT_TYPE,
+        #     DType.EXTERN_PYTHON,
+        #     DType.PY_OBJ,
+        #     DType.TABLE,
+        #     DType.STRING,
+        #     DType.LIST,
+        # )
+        illegal_bound_types = (PhantomType(),)
+        # pyffi makes this complicated or maybe impossible; for now, I will assume here that pyffi functions do not modify the ast of lcaml functions.
+        # However, this may not be true. TODO can I come up with some way to avoid this problem that does not require me to hash the entire ast recursively?
+        for k, v in allowed_ext_bounds.items():
+            if v is None:
+                raise JitCompError(
+                    f"cannot jit-compile functions with unresolved bounds: found unresolved bound {k}"
                 )
-            }
-            for dt in dtypes.values():
-                if dt in illegal_arg_types:
-                    raise JitCompError(
-                        f"compiling functions with non-primitive input parameter types is unsupported: got input of type {DType.name(dt)}"
-                    )
+            elif v.type in illegal_bound_types:
+                raise JitCompError(
+                    f"jit-compiling functions with bounds of type {DType.name(v.type)} is unsupported: found bound {k} of illegal type"
+                )
 
-            arg_llvm_types = [
-                self._get_llvm_type(dtype)
-                for dtype in input_types
-            ] + [llvm_ir.PointerType(llvm_ir.IntType(64))]
-            ret_type = Function._get_ret_type(self.body, context, dtypes)
-            must_insert_ret_void = False
-            if ret_type is None:
-                must_insert_ret_void = True
-                ret_type = DType.UNIT
-            dtypes["->"] = ret_type
-            ret_llvm_type = self._get_llvm_type(ret_type)
-            func_ty = llvm_ir.FunctionType(ret_llvm_type, arg_llvm_types)
-            func = llvm_ir.Function(module, func_ty, "main" if is_main else "")
-            bb_allocas = func.append_basic_block("allocas")
-            builder = llvm_ir.IRBuilder(bb_allocas)
+        allowed_bounds_dtypes = {
+            n: obj.type for n, obj in allowed_ext_bounds.items()
+        }
+        dtypes = {
+            arg: dtype
+            for arg, dtype in itertools.chain(
+                zip((arg.name for arg in self.arguments), input_types),
+                allowed_bounds_dtypes.items(),
+            )
+        }
+        for dt in dtypes.values():
+            if dt in illegal_arg_types:
+                raise JitCompError(
+                    f"compiling functions with non-primitive input parameter types is unsupported: got input of type {DType.name(dt)}"
+                )
 
-            vars = {
-                arg.name: builder.alloca(func.args[i].type, name=arg.name)
-                for i, arg in enumerate(self.arguments)
-            }
+        arg_llvm_types = [
+            self._get_llvm_type(dtype)
+            for dtype in input_types
+        ] + [llvm_ir.PointerType(llvm_ir.IntType(64))]
+        ret_type = Function._get_ret_type(self.body, context, dtypes)
+        must_insert_ret_void = False
+        if ret_type is None:
+            must_insert_ret_void = True
+            ret_type = DType.UNIT
+        dtypes["->"] = ret_type
+        ret_llvm_type = self._get_llvm_type(ret_type)
+        func_ty = llvm_ir.FunctionType(ret_llvm_type, arg_llvm_types)
+        func = llvm_ir.Function(module, func_ty, "main" if is_main else "")
+        bb_allocas = func.append_basic_block("allocas")
+        builder = llvm_ir.IRBuilder(bb_allocas)
 
-            bb_entry = builder.append_basic_block("entry")
-            builder.position_at_end(bb_entry)
+        vars = {
+            arg.name: builder.alloca(func.args[i].type, name=arg.name)
+            for i, arg in enumerate(self.arguments)
+        }
 
-            for v, alloca in zip(func.args, vars.values()):
-                builder.store(v, alloca)
-            try:
-                self._jit_compile(self.body, builder, dtypes, vars, context, bb_allocas)
-                if must_insert_ret_void:
-                    builder.ret_void()
-                builder.position_at_end(bb_allocas)
-                builder.branch(bb_entry)
-            except JitCompError as e:
-                # try to decouple the failed function from the module
-                module.globals.pop(func.name)
-                raise e
+        bb_entry = builder.append_basic_block("entry")
+        builder.position_at_end(bb_entry)
 
-            self.jit_cache[input_types] = func, ret_type
-        return self.jit_cache[input_types]
+        for v, alloca in zip(func.args, vars.values()):
+            builder.store(v, alloca)
+        try:
+            self._jit_compile(self.body, builder, dtypes, vars, context, bb_allocas)
+            if must_insert_ret_void:
+                builder.ret_void()
+            builder.position_at_end(bb_allocas)
+            builder.branch(bb_entry)
+        except JitCompError as e:
+            # try to decouple the failed function from the module
+            module.globals.pop(func.name)
+            raise e
+
+        return func, ret_type
 
     def jit_compile_main(
         self,
         input_types: Tuple["DType.ty"],
         context: "Context",
     ) -> tuple[int, "DType.ty"]:
-        if input_types not in self.func_ptr_ret_ty_cache:
+        if input_types not in self.jit_cache:
             try:
                 ir_mod = llvm_ir.Module()
                 main_func, ret_type = self.jit_compile(
@@ -821,13 +823,11 @@ class Function(AstRelated, Resolvable):
                 # convert the IR mod to a binding mod (yes, emitting and re-parsing LLVM IR is the recommended way of doing that as per documentation)
                 func_ptr = compile_llvm_module(ir_mod, main_func.name)
             except Exception as e:
-                self.func_ptr_ret_ty_cache[input_types] = e
-                raise e
+                self.jit_cache[input_types] = e
             else:
-                self.func_ptr_ret_ty_cache[input_types] = func_ptr, ret_type
-                return func_ptr, ret_type
+                self.jit_cache[input_types] = func_ptr, ret_type
 
-        ret = self.func_ptr_ret_ty_cache[input_types]
+        ret = self.jit_cache[input_types]
         if isinstance(ret, Exception):
             raise ret
         return ret

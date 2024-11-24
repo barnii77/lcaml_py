@@ -22,7 +22,9 @@ def l_println(*args):
     print(*(arg if arg is not None else "()" for arg in args), sep="")
 
 
-l_input = pyffi.interface(input, name="input")
+@pyffi.interface(name="input")
+def l_input(prompt):
+    return input(prompt)
 
 
 @pyffi.interface(name="isinstance")
@@ -420,6 +422,24 @@ def l_jit(context, args):
     return new_func
 
 
+@pyffi.raw(name="is_defined")
+def l_is_defined(context, args):
+    if len(args) != 1:
+        raise ValueError("is_defined expects 1 argument: var_name")
+    var_name_obj = args[0]
+    if var_name_obj.type != interpreter_types.DType.STRING:
+        raise TypeError(
+            f"first argument of `jit` must be a function, but is of type {interpreter_types.DType.name(var_name_obj.type)}"
+        )
+    var_name: str = var_name_obj.value
+    return var_name in context
+
+
+@pyffi.interface(name="abs")
+def l_abs(x):
+    return abs(x)
+
+
 @pyffi.pymodule
 def module(context):
     exports = {
@@ -456,5 +476,7 @@ def module(context):
         "time": l_time,
         "breakpoint": l_breakpoint,
         "jit": l_jit,
+        "is_defined": l_is_defined,
+        "abs": l_abs,
     }
     return exports

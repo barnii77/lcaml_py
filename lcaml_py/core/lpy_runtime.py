@@ -9,6 +9,7 @@ from lcaml_py.core import pyffi
 _518b67e652531c5fe7e25d6b.setrecursionlimit(LCAML_RECURSION_LIMIT)
 pyffi.COMPILE_WITH_CONTEXT_LEAKING = COMPILE_WITH_CONTEXT_LEAKING
 
+_78da4a596a88bc5114f071ba = abs
 _c96c6d5be8d08a12e7b5cdc1 = input
 _ce953a0eb08246617b7f8494 = print
 _6ee0eb490ff832101cf82a3d = set
@@ -329,6 +330,21 @@ def breakpoint():
 def jit(func):
     # python doesn't have a JIT compiler
     return func
+
+
+@_6e8be7d82f8a724d77d4d12c
+def is_defined(*args):
+    context = _ad7aaf167f237a94dc2c3ad2
+    if COMPILE_WITH_CONTEXT_LEAKING:
+        context, var_name, *_ = args
+    else:
+        var_name, *_ = args
+    return var_name in context
+
+
+@_881ecbfb15f7e6881a337113
+def abs(prompt):
+    return _78da4a596a88bc5114f071ba(prompt)
 
 
 _ad7aaf167f237a94dc2c3ad2 = globals()

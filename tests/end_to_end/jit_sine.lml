@@ -1,0 +1,50 @@
+let sin = jit (|x N_TERMS| {
+  let pi = 3.14159265358979;
+  let x = x % (2 * pi);
+  let sum_term = 0.0;
+  let n = 0;
+  let sign = 0;
+  let m = 0;
+  let fact = 0.0;
+  let pow = 0.0;
+
+  while (n < N_TERMS) {
+    -- sign
+    if (n % 2 == 0) {
+      let sign = 1;
+    } else {
+      let sign = -1;
+    };
+    
+    -- power
+    let m = (2 * n + 1);
+    let pow = 1.0;
+    while (m > 0) {
+        let pow = pow * x;
+        let m = m - 1;
+    };
+
+    -- factorial
+    let m = (2 * n + 1);
+    let fact = 1.0;
+    while (m > 1) {
+        let fact = fact * m;
+        let m = m - 1;
+    };
+
+    -- sine term
+    let sum_term = sum_term + sign * pow / fact;
+    let n = n + 1;
+  };
+  return sum_term;
+});
+
+let pi = 3.14159265358979;
+let N = 4000;
+let sin_pi = 0.0;
+
+let sin_out = sin pi N;
+
+if (abs (sin_out - sin_pi) > 0.0001) {
+    panic("incorrect output");
+};

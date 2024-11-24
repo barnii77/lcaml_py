@@ -18,36 +18,37 @@ def get_lcaml_traceback(exc: Exception) -> str:
     tb_lines.append("LCaml Traceback (most recent call last):")
     if not hasattr(exc, "__lcaml_traceback_info"):
         print("Unable to construct lcaml traceback.")
-    tb_info = getattr(exc, "__lcaml_traceback_info")
-    code_lines = None
-    for loc in reversed(tb_info):
-        if isinstance(loc, interpreter_mod.Interpreter):
-            tb_lines.append(f"In file {loc.vm.file}:\n")
-            code_lines = loc.code.splitlines()
-        elif isinstance(loc, interpreter_vm_mod.InterpreterVM):
-            tb_lines.append(f"On line {loc.statement_line}:")
-            tb_lines.append(
-                get_marked_code_snippet(code_lines, loc.statement_line - 1, 3)
-                if code_lines is not None
-                else "<code unavailable>"
-            )
-            tb_lines.append("")
-        elif isinstance(loc, int):
-            tb_lines.append(f"On line {loc}:")
-            tb_lines.append(
-                get_marked_code_snippet(code_lines, loc - 1, 3)
-                if code_lines is not None
-                else "<code unavailable>"
-            )
-            tb_lines.append("")
-        elif isinstance(loc, tuple) and len(loc) == 2 and isinstance(loc[0], str) and isinstance(loc[1], str):
-            file, code = loc
-            tb_lines.append(f"In file {file}:\n")
-            code_lines = code.splitlines()
-        elif isinstance(loc, str):
-            tb_lines.append("Note: " + loc + "\n")
-        else:
-            raise TypeError("Invalid traceback entry encountered.")
+    else:
+        tb_info = getattr(exc, "__lcaml_traceback_info")
+        code_lines = None
+        for loc in reversed(tb_info):
+            if isinstance(loc, interpreter_mod.Interpreter):
+                tb_lines.append(f"In file {loc.vm.file}:\n")
+                code_lines = loc.code.splitlines()
+            elif isinstance(loc, interpreter_vm_mod.InterpreterVM):
+                tb_lines.append(f"On line {loc.statement_line}:")
+                tb_lines.append(
+                    get_marked_code_snippet(code_lines, loc.statement_line - 1, 3)
+                    if code_lines is not None
+                    else "<code unavailable>"
+                )
+                tb_lines.append("")
+            elif isinstance(loc, int):
+                tb_lines.append(f"On line {loc}:")
+                tb_lines.append(
+                    get_marked_code_snippet(code_lines, loc - 1, 3)
+                    if code_lines is not None
+                    else "<code unavailable>"
+                )
+                tb_lines.append("")
+            elif isinstance(loc, tuple) and len(loc) == 2 and isinstance(loc[0], str) and isinstance(loc[1], str):
+                file, code = loc
+                tb_lines.append(f"In file {file}:\n")
+                code_lines = code.splitlines()
+            elif isinstance(loc, str):
+                tb_lines.append("Note: " + loc + "\n")
+            else:
+                raise TypeError("Invalid traceback entry encountered.")
 
     # this chaos below improves error output format by trying to parse `repr(exc)` to some degree
     r = repr(exc)
@@ -114,6 +115,7 @@ def main(
     enable_vm_callbacks=True,
     lcaml_tracebacks=True,
 ):
+    lcaml_expression.initialize_llvmlite()
     if os.path.isdir(file):
         # run all files in dir
         for f in os.listdir(file):

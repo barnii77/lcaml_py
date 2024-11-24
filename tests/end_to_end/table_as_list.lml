@@ -19,7 +19,7 @@ let _ = println ((get list 0) + (get list 1));
 if (9 != ((get list 0) + (get list 1))) {
     undef_var;
 };
-let _ = print "should be None: ";
+-- let _ = print "should be None: ";
 let _ = append list 6;
 let _ = println "should be 6: " (get list 2);
 if (6 != get list 2) {
