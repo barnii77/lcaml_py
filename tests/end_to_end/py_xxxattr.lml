@@ -12,3 +12,8 @@ py_setattr f "a" 99;
 if (py_getattr f "a" != 99) {
     panic "I did set that though";
 };
+
+py_setattr_exec f "a" 97;
+if (py_getattr_exec f "a" != 97) {
+    panic "I did set that though";
+};

@@ -362,4 +362,22 @@ def py_setattr(obj, attr, value):
     setattr(obj, attr, value)
 
 
+@_881ecbfb15f7e6881a337113
+def py_getattr_exec(obj, attr):
+    g = {"obj": obj}
+    exec(
+        f"x = obj.{attr}",
+        g,
+    )
+    return g["x"]
+
+
+@_881ecbfb15f7e6881a337113
+def py_setattr_exec(obj, attr, value):
+    exec(
+        f"obj.{attr} = value",
+        {"obj": obj, "value": value},
+    )
+
+
 _ad7aaf167f237a94dc2c3ad2 = globals()

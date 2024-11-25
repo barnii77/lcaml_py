@@ -497,6 +497,53 @@ def l_py_setattr(context, args):
     return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
+@pyffi.raw(name="py_getattr_exec")
+def l_py_getattr_exec(context, args):
+    if len(args) == 2:
+        py_obj, attr = args
+    else:
+        raise RuntimeError(f"expected 2 arguments, got {len(args)}")
+    if attr.type != interpreter_types.DType.STRING:
+        raise TypeError(f"expected attribute to be string, but got {type(attr.value)}")
+    g = {"py_obj_value": py_obj.value}
+    exec(
+        f"x = py_obj_value.{attr.value}",
+        g,
+    )
+    return pyffi._python_to_lcaml(
+        g["x"],
+        context.get(lcaml_lexer.Syntax._vm_intrinsic),
+    )
+
+
+@pyffi.raw(name="py_setattr_exec")
+def l_py_setattr_exec(context, args):
+    if len(args) == 3:
+        py_obj, attr, value = args
+    else:
+        raise RuntimeError(f"expected 3 arguments, got {len(args.value)}")
+    if attr.type != interpreter_types.DType.STRING:
+        raise TypeError(f"expected attribute to be string, but got {type(attr.value)}")
+    if py_obj.type in (
+        interpreter_types.DType.INT,
+        interpreter_types.DType.FLOAT,
+        interpreter_types.DType.STRING,
+        interpreter_types.DType.UNIT,
+        interpreter_types.DType.BOOL,
+        interpreter_types.DType.STRUCT_TYPE,
+        interpreter_types.DType.LIST,
+        interpreter_types.DType.TABLE,
+    ):
+        raise TypeError(
+            f"cannot use py_setattr on primitive builtin types in python (list, int, ...): object has type {interpreter_types.DType.name(py_obj.type)}, which is disallowed"
+        )
+    exec(
+        f"py_obj_value.{attr.value} = value_value",
+        {"py_obj_value": py_obj.value, "value_value": value.value},
+    )
+    return interpreter_types.Object(interpreter_types.DType.UNIT, None)
+
+
 @pyffi.pymodule
 def module(context):
     exports = {
@@ -538,5 +585,7 @@ def module(context):
         "py_hasattr": l_py_hasattr,
         "py_getattr": l_py_getattr,
         "py_setattr": l_py_setattr,
+        "py_getattr_exec": l_py_getattr_exec,
+        "py_setattr_exec": l_py_setattr_exec,
     }
     return exports
