@@ -4,11 +4,14 @@ from inspect import signature as _1a2fc26dc7ea5a2a4748b7cb
 import sys as _518b67e652531c5fe7e25d6b
 import os as _840a8dcfeae95966a870b0b5
 import time as _336074805fc853987abe6f7f
-from lcaml_py.core import pyffi
+from lcaml_py.core import pyffi as lcaml_pyffi_mod
+from lcaml_py.core import interpreter as lcaml_interpreter_mod
 
 _518b67e652531c5fe7e25d6b.setrecursionlimit(LCAML_RECURSION_LIMIT)
-pyffi.COMPILE_WITH_CONTEXT_LEAKING = COMPILE_WITH_CONTEXT_LEAKING
+lcaml_pyffi_mod.COMPILE_WITH_CONTEXT_LEAKING = COMPILE_WITH_CONTEXT_LEAKING
 
+_2706c619fe73f0cf112473c6 = exec
+_e9e8d4b193cfa45adf2725ec = locals
 _78da4a596a88bc5114f071ba = abs
 _c96c6d5be8d08a12e7b5cdc1 = input
 _ce953a0eb08246617b7f8494 = print
@@ -271,7 +274,7 @@ def import_py(*args):
         path_without_ext.replace("\\\\", ".").replace("\\", ".").replace("/", ".")
     )
     g = {}
-    exec(f"import {python_path} as mod", g)
+    _2706c619fe73f0cf112473c6(f"import {python_path} as mod", g)
     return g["mod"].module(context)
 
 
@@ -365,7 +368,7 @@ def py_setattr(obj, attr, value):
 @_881ecbfb15f7e6881a337113
 def py_getattr_exec(obj, attr):
     g = {"obj": obj}
-    exec(
+    _2706c619fe73f0cf112473c6(
         f"x = obj.{attr}",
         g,
     )
@@ -374,10 +377,32 @@ def py_getattr_exec(obj, attr):
 
 @_881ecbfb15f7e6881a337113
 def py_setattr_exec(obj, attr, value):
-    exec(
+    _2706c619fe73f0cf112473c6(
         f"obj.{attr} = value",
         {"obj": obj, "value": value},
     )
+
+
+@_881ecbfb15f7e6881a337113
+def py_exec(py_code, py_globs):
+    _2706c619fe73f0cf112473c6(py_code, py_globs)
+
+
+@_881ecbfb15f7e6881a337113
+def exec(l_code, l_globs):
+    # interpreter = lcaml_interpreter_mod.Interpreter(l_code)
+    # interpreter.execute(l_globs)
+    raise RuntimeError(
+        "the lcaml exec function is not available in lcaml that has been compiled to python"
+    )
+
+
+@_6e8be7d82f8a724d77d4d12c
+def locals(*args):
+    if COMPILE_WITH_CONTEXT_LEAKING:
+        return args[0]
+    else:
+        return {}
 
 
 _ad7aaf167f237a94dc2c3ad2 = globals()

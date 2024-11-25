@@ -1,0 +1,18 @@
+let vars = {};
+
+let locs = exec "return (locals ());" ({locals: locals});
+if (locs.locals != locals) {
+    println locs;
+    panic "wtf";
+};
+
+exec ("set vars " + chr(34) + "value" + chr(34) + " 5;") ({set: set, vars: vars});
+
+if (get vars "value" != 5) {
+    panic ("should be 5, but is " + string (get vars "value"));
+};
+
+let upl = py_exec "x['w'] = x['w'] + 1" ({x: {w: 1}});
+if (upl.x.w != 2) {
+    panic "wrong!";
+};

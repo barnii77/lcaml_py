@@ -145,9 +145,9 @@ def l_get(context, args):
         if index >= len(iterable.values):
             raise IndexError(f"index {index} out of range")
         return iterable.values[index]
-    elif key.value not in iterable.fields:
+    elif key not in iterable.fields:
         return interpreter_types.Object(lcaml_expression.DType.UNIT, None)
-    return iterable.fields[key.value]
+    return iterable.fields[key]
 
 
 @pyffi.raw(name="len")
@@ -544,6 +544,45 @@ def l_py_setattr_exec(context, args):
     return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
+@pyffi.interface(name="py_exec")
+def l_py_exec(py_code, py_globs):
+    if not isinstance(py_code, str):
+        raise TypeError(f"expected py_code to be str, got {type(py_code)}")
+    if not isinstance(py_globs, dict):
+        raise TypeError(f"expected py_globs to be dict, got {type(py_globs)}")
+    exec(py_code, py_globs)
+    return py_globs
+
+
+@pyffi.raw(name="exec")
+def l_exec(context, args):
+    if len(args) != 2:
+        raise RuntimeError(f"expected 2 args (l_code, l_globs), but got {len(args)}")
+    l_code, l_globs = args
+    if l_code.type != interpreter_types.DType.STRING:
+        raise TypeError(
+            f"expected l_code to be string, got {interpreter_types.DType.name(l_code.type)}"
+        )
+    if l_globs.type != interpreter_types.DType.TABLE:
+        raise TypeError(
+            f"expected l_globs to be table, got {interpreter_types.DType.name(l_globs.type)}"
+        )
+    interpreter = interpreter_mod.Interpreter(l_code.value)
+    result = interpreter.execute(l_globs.value.fields)
+    return (
+        result
+        if result is not None
+        else interpreter_types.Object(interpreter_types.DType.UNIT, None)
+    )
+
+
+@pyffi.raw(name="locals")
+def l_locals(context, args):
+    return interpreter_types.Object(
+        interpreter_types.DType.TABLE, lcaml_expression.Table(context)
+    )
+
+
 @pyffi.pymodule
 def module(context):
     exports = {
@@ -587,5 +626,8 @@ def module(context):
         "py_setattr": l_py_setattr,
         "py_getattr_exec": l_py_getattr_exec,
         "py_setattr_exec": l_py_setattr_exec,
+        "py_exec": l_py_exec,
+        "exec": l_exec,
+        "locals": l_locals,
     }
     return exports
