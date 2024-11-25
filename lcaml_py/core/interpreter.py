@@ -18,8 +18,11 @@ def lcamlify_vars(
 ) -> "lcaml_expression.Table":
     result = {}
     for name, value in variables.items():
-        # name_ast_id = AstIdentifier(Token(TokenKind.IDENTIFIER, name))
-        result[name] = lcamlify_vars(value) if isinstance(value, dict) else _python_to_lcaml(value, wrap_extern_py=wrap_extern_py)
+        result[name] = (
+            lcamlify_vars(value, wrap_extern_py)
+            if isinstance(value, dict)
+            else _python_to_lcaml(value, wrap_extern_py=wrap_extern_py)
+        )
     return lcaml_expression.Table(result)
 
 
