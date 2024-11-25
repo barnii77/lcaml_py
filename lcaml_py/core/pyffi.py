@@ -80,7 +80,7 @@ def _python_to_lcaml(py_obj, interpreter_vm=None, wrap_extern_py=True):
     elif type(py_obj) is dict:
         # Convert Python dict to LCaml Table
         fields = {
-            key: _python_to_lcaml(val, interpreter_vm) for key, val in py_obj.items()
+            key: _python_to_lcaml(val, interpreter_vm, wrap_extern_py) for key, val in py_obj.items()
         }  # Assuming all values are strings
         return Object(DType.TABLE, lcaml_expression.Table(fields))
     elif hasattr(py_obj, "__call__"):
@@ -93,7 +93,7 @@ def _python_to_lcaml(py_obj, interpreter_vm=None, wrap_extern_py=True):
         fields = [parser_types.AstIdentifier(field) for field in py_obj]
         return Object(DType.STRUCT_TYPE, lcaml_expression.StructType(fields))
     elif type(py_obj) is list:
-        inner = [_python_to_lcaml(item) for item in py_obj]
+        inner = [_python_to_lcaml(item, interpreter_vm, wrap_extern_py) for item in py_obj]
         return Object(DType.LIST, lcaml_expression.LList(inner))
     else:
         return Object(DType.PY_OBJ, py_obj)
