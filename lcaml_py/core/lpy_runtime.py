@@ -347,4 +347,19 @@ def abs(prompt):
     return _78da4a596a88bc5114f071ba(prompt)
 
 
+@_881ecbfb15f7e6881a337113
+def py_hasattr(obj, attr):
+    return hasattr(obj, attr)
+
+
+@_881ecbfb15f7e6881a337113
+def py_getattr(obj, attr, default_value=None):
+    return getattr(obj, attr, default_value)
+
+
+@_881ecbfb15f7e6881a337113
+def py_setattr(obj, attr, value):
+    setattr(obj, attr, value)
+
+
 _ad7aaf167f237a94dc2c3ad2 = globals()

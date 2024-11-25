@@ -1,0 +1,14 @@
+let x = [1, 2];
+
+if (py_hasattr x "hello") {
+    panic "should not have that";
+} else if (py_getattr x "wut" 2 != 2) {
+    panic "huh";
+};
+
+let f = |_| {};
+
+py_setattr f "a" 99;
+if (py_getattr f "a" != 99) {
+    panic "I did set that though";
+};

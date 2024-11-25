@@ -405,6 +405,7 @@ def l_time():
 @pyffi.raw(name="breakpoint")
 def l_breakpoint(context, _):
     lcaml_debugger.debugger_main(context)
+    return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
 @pyffi.raw(name="jit")
@@ -438,6 +439,62 @@ def l_is_defined(context, args):
 @pyffi.interface(name="abs")
 def l_abs(x):
     return abs(x)
+
+
+@pyffi.raw(name="py_hasattr")
+def l_py_hasattr(context, args):
+    if len(args) == 2:
+        py_obj, attr = args
+    else:
+        raise RuntimeError(f"expected 2 arguments, got {len(args)}")
+    if attr.type != interpreter_types.DType.STRING:
+        raise TypeError(f"expected attribute to be string, but got {type(attr.value)}")
+    return interpreter_types.Object(
+        interpreter_types.DType.BOOL, hasattr(py_obj.value, attr.value)
+    )
+
+
+@pyffi.raw(name="py_getattr")
+def l_py_getattr(context, args):
+    if len(args) == 2:
+        py_obj, attr, default_value = *args, interpreter_types.Object(
+            interpreter_types.DType.UNIT, None
+        )
+    elif len(args) == 3:
+        py_obj, attr, default_value = args
+    else:
+        raise RuntimeError(f"expected 2 or 3 arguments, got {len(args)}")
+    if attr.type != interpreter_types.DType.STRING:
+        raise TypeError(f"expected attribute to be string, but got {type(attr.value)}")
+    return pyffi._python_to_lcaml(
+        getattr(py_obj.value, attr.value, default_value.value),
+        context.get(lcaml_lexer.Syntax._vm_intrinsic),
+    )
+
+
+@pyffi.raw(name="py_setattr")
+def l_py_setattr(context, args):
+    if len(args) == 3:
+        py_obj, attr, value = args
+    else:
+        raise RuntimeError(f"expected 3 arguments, got {len(args.value)}")
+    if attr.type != interpreter_types.DType.STRING:
+        raise TypeError(f"expected attribute to be string, but got {type(attr.value)}")
+    if py_obj.type in (
+        interpreter_types.DType.INT,
+        interpreter_types.DType.FLOAT,
+        interpreter_types.DType.STRING,
+        interpreter_types.DType.UNIT,
+        interpreter_types.DType.BOOL,
+        interpreter_types.DType.STRUCT_TYPE,
+        interpreter_types.DType.LIST,
+        interpreter_types.DType.TABLE,
+    ):
+        raise TypeError(
+            f"cannot use py_setattr on primitive builtin types in python (list, int, ...): object has type {interpreter_types.DType.name(py_obj.type)}, which is disallowed"
+        )
+    setattr(py_obj.value, attr.value, value.value)
+    return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
 @pyffi.pymodule
@@ -478,5 +535,8 @@ def module(context):
         "jit": l_jit,
         "is_defined": l_is_defined,
         "abs": l_abs,
+        "py_hasattr": l_py_hasattr,
+        "py_getattr": l_py_getattr,
+        "py_setattr": l_py_setattr,
     }
     return exports
