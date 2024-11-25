@@ -130,8 +130,8 @@ def interface(
             @staticmethod
             def execute(context, args):
                 _interpreter_vm = interpreter_vm
-                if _interpreter_vm is None:
-                    _interpreter_vm = context.get(Syntax._vm_intrinsic)
+                if _interpreter_vm is None and Syntax._vm_intrinsic in context:
+                    _interpreter_vm = context[Syntax._vm_intrinsic].value
                 if _interpreter_vm is not None and not isinstance(_interpreter_vm, interpreter_vm_mod.InterpreterVM):
                     raise TypeError(f"{Syntax._vm_intrinsic} was overwritten with illegal value `{_interpreter_vm}`: intrinsic value must be an InterpreterVM")
                 py_args = [_lcaml_to_python(arg, _interpreter_vm) for arg in args]
