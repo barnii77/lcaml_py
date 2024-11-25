@@ -47,9 +47,7 @@ def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
 
         def vm_wrapper(*args):
             func_call = lcaml_expression.FunctionCall(lcaml_func, list(args))
-            new_vm = lcaml_vm.InterpreterVM(func_call)
-            new_vm.context = interpreter_vm.context
-            return new_vm.execute()
+            return func_call.resolve(interpreter_vm.context)
 
         return vm_wrapper
     elif lcaml_obj.type == DType.STRUCT_TYPE:
