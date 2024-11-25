@@ -2,7 +2,6 @@ import functools
 from typing import Callable
 from . import extern_python as extern_python
 from .interpreter_types import DType, Object
-from . import interpreter_vm as lcaml_vm
 from . import lcaml_expression as lcaml_expression
 from . import parser_types as parser_types
 from . import interpreter
@@ -46,7 +45,8 @@ def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
         lcaml_func = lcaml_obj.value
 
         def vm_wrapper(*args):
-            func_call = lcaml_expression.FunctionCall(lcaml_func, list(args))
+            args = [lcaml_expression.ObjectFakeAst(_python_to_lcaml(arg)) for arg in args]
+            func_call = lcaml_expression.FunctionCall(lcaml_func, args)
             return func_call.resolve(interpreter_vm.context)
 
         return vm_wrapper
@@ -78,7 +78,8 @@ def _python_to_lcaml(py_obj, interpreter_vm=None, wrap_extern_py=True):
     elif type(py_obj) is dict:
         # Convert Python dict to LCaml Table
         fields = {
-            key: _python_to_lcaml(val, interpreter_vm, wrap_extern_py) for key, val in py_obj.items()
+            key: _python_to_lcaml(val, interpreter_vm, wrap_extern_py)
+            for key, val in py_obj.items()
         }  # Assuming all values are strings
         return Object(DType.TABLE, lcaml_expression.Table(fields))
     elif hasattr(py_obj, "__call__"):
@@ -91,7 +92,9 @@ def _python_to_lcaml(py_obj, interpreter_vm=None, wrap_extern_py=True):
         fields = [parser_types.AstIdentifier(field) for field in py_obj]
         return Object(DType.STRUCT_TYPE, lcaml_expression.StructType(fields))
     elif type(py_obj) is list:
-        inner = [_python_to_lcaml(item, interpreter_vm, wrap_extern_py) for item in py_obj]
+        inner = [
+            _python_to_lcaml(item, interpreter_vm, wrap_extern_py) for item in py_obj
+        ]
         return Object(DType.LIST, lcaml_expression.LList(inner))
     else:
         return Object(DType.PY_OBJ, py_obj)
@@ -130,8 +133,12 @@ def interface(
                 _interpreter_vm = interpreter_vm
                 if _interpreter_vm is None and Syntax._vm_intrinsic in context:
                     _interpreter_vm = context[Syntax._vm_intrinsic].value
-                if _interpreter_vm is not None and not isinstance(_interpreter_vm, interpreter_vm_mod.InterpreterVM):
-                    raise TypeError(f"{Syntax._vm_intrinsic} was overwritten with illegal value `{_interpreter_vm}`: intrinsic value must be an InterpreterVM")
+                if _interpreter_vm is not None and not isinstance(
+                    _interpreter_vm, interpreter_vm_mod.InterpreterVM
+                ):
+                    raise TypeError(
+                        f"{Syntax._vm_intrinsic} was overwritten with illegal value `{_interpreter_vm}`: intrinsic value must be an InterpreterVM"
+                    )
                 py_args = [_lcaml_to_python(arg, _interpreter_vm) for arg in args]
                 result = func(*py_args)
                 return _python_to_lcaml(result, _interpreter_vm)

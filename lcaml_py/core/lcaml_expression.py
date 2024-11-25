@@ -1574,6 +1574,24 @@ class Constant(AstRelated, Resolvable):
         return self.value
 
 
+class ObjectFakeAst(AstRelated, Resolvable):
+    """
+    Helper class to wrap an object in an AST node interface so I don't have to rewrite functions that require this API
+    """
+
+    def __init__(self, obj: "Object"):
+        self.obj = obj
+
+    def __str__(self):
+        return "ObjectFakeAst(" + str(self.obj) + ")"
+
+    def to_python(self):
+        raise RuntimeError("unreachable")
+
+    def resolve(self, context: Context):
+        return self.obj
+
+
 class ExpressionBuildState:
     EXPECT_RESOLVABLE = 0
     EXPECT_OPERATOR = 1

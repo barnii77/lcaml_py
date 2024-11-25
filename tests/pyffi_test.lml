@@ -7,4 +7,18 @@ let _ = println "y = " y ", a = " a;
 let lst = [1];
 let lst = (pymod.append_to_list) lst 2;
 let lst = (pymod.append_to_list) lst 3;
+
+let cb = |x| {
+    while (x > 0) {
+        println "counter is " x;
+        let x = x - 1;
+    };
+    return "hello";
+};
+
+let cbr = (pymod.call_lcaml_callback) cb;
+if (cbr != "hello") {
+    panic("wrong!");
+};
+
 return lst;
