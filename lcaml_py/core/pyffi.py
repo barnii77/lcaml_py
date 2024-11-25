@@ -6,6 +6,8 @@ from . import interpreter_vm as lcaml_vm
 from . import lcaml_expression as lcaml_expression
 from . import parser_types as parser_types
 from . import interpreter
+from . import interpreter_vm as interpreter_vm_mod
+from .lcaml_lexer import Syntax
 
 # if hasattr(func, COMPYLA_IS_EXTERN_MAGIC_ATTRIBUTE_NAME) => func is pyffi function
 COMPYLA_IS_EXTERN_MAGIC_ATTRIBUTE_NAME = "_e6c50da35e8f9284c183e69b"
@@ -82,7 +84,10 @@ def _python_to_lcaml(py_obj, interpreter_vm=None, wrap_extern_py=True):
         }  # Assuming all values are strings
         return Object(DType.TABLE, lcaml_expression.Table(fields))
     elif hasattr(py_obj, "__call__"):
-        return Object(DType.EXTERN_PYTHON, interface(py_obj, interpreter_vm) if wrap_extern_py else py_obj)
+        return Object(
+            DType.EXTERN_PYTHON,
+            interface(py_obj, interpreter_vm) if wrap_extern_py else py_obj,
+        )
     elif type(py_obj) is set and all(isinstance(item, str) for item in py_obj):
         # Convert Python list of field names to LCaml StructType
         fields = [parser_types.AstIdentifier(field) for field in py_obj]
@@ -124,9 +129,14 @@ def interface(
 
             @staticmethod
             def execute(context, args):
-                py_args = [_lcaml_to_python(arg, interpreter_vm) for arg in args]
+                _interpreter_vm = interpreter_vm
+                if _interpreter_vm is None:
+                    _interpreter_vm = context.get(Syntax._vm_intrinsic)
+                if _interpreter_vm is not None and not isinstance(_interpreter_vm, interpreter_vm_mod.InterpreterVM):
+                    raise TypeError(f"{Syntax._vm_intrinsic} was overwritten with illegal value `{_interpreter_vm}`: intrinsic value must be an InterpreterVM")
+                py_args = [_lcaml_to_python(arg, _interpreter_vm) for arg in args]
                 result = func(*py_args)
-                return _python_to_lcaml(result)
+                return _python_to_lcaml(result, _interpreter_vm)
 
             def __str__(self):
                 return name
