@@ -1468,7 +1468,7 @@ class FunctionCall(AstRelated, Resolvable):
 
                 # spawn new interpreter vm
                 base_vm_obj = context.get(Syntax._vm_intrinsic)
-                if not base_vm_obj or base_vm_obj.type != DType.PY_OBJ or not isinstance(base_vm_obj.value, interpreter_vm_mod.InterpreterVM):
+                if base_vm_obj is None or base_vm_obj.type != DType.PY_OBJ or not isinstance(base_vm_obj.value, interpreter_vm_mod.InterpreterVM):
                     raise RuntimeError(f"{Syntax._vm_intrinsic} does not store exist or does not store the current vm")
                 base_vm: "interpreter_vm_mod.InterpreterVM" = base_vm_obj.value
                 interpreter_vm = interpreter_vm_mod.InterpreterVM(
