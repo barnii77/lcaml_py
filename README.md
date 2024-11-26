@@ -1,6 +1,6 @@
 # Description
 An interpreter written in python... hear me out.
-The original purpose of this language was for me to be able to submit my python assignments in software engineering class at my school in my own programming language, so I had to make that in python so to be able to claim "well technically, that's still a python program".
+The original purpose of this language was for me to be able to submit my python assignments in software engineering class at my school in my own programming language, so I had to make that in python to be able to claim "well technically, that's still a python program".
 
 LCaml is an incomplete, terribly slow, lua-style functional programming language (although it has a jit compiler and can be transpiled to python, which helps with the original speed problem).
 
