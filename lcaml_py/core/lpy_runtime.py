@@ -405,4 +405,9 @@ def locals(*args):
         return {}
 
 
+@_881ecbfb15f7e6881a337113
+def slice(iterable, start, end=None, step=1):
+    return iterable[start:end:step]
+
+
 _ad7aaf167f237a94dc2c3ad2 = globals()

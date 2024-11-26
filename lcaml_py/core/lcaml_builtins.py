@@ -97,7 +97,7 @@ def l_set(context, args):
             raise IndexError(f"index {index} out of range")
         iterable.values[index] = value
     else:
-        iterable.fields[key] = value
+        iterable.fields[key.value if key.type == interpreter_types.DType.STRING else key] = value
     return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
@@ -145,9 +145,30 @@ def l_get(context, args):
         if index >= len(iterable.values):
             raise IndexError(f"index {index} out of range")
         return iterable.values[index]
-    elif key not in iterable.fields:
+    key = key.value if key.type == interpreter_types.DType.STRING else key
+    if key not in iterable.fields:
         return interpreter_types.Object(lcaml_expression.DType.UNIT, None)
     return iterable.fields[key]
+
+
+@pyffi.raw(name="slice")
+def l_slice(context, args):
+    if len(args) not in (2, 3, 4):
+        raise RuntimeError(
+            f"slice takes 2, 3 or 4 arguments (iterable, start, end?, step?), but got {len(args)}"
+        )
+    if len(args) == 2:
+        iterable, start, end, step = *args, None, 1
+    elif len(args) == 3:
+        iterable, start, end, step = *args, 1
+    else:
+        iterable, start, end, step = args
+    if iterable.type in (interpreter_types.DType.LIST, interpreter_types.DType.STRING):
+        return interpreter_types.Object(iterable.type, iterable.value[start:end:step])
+    else:
+        raise TypeError(
+            f"expected iterable (list or string), got {interpreter_types.DType.name(iterable.type)}"
+        )
 
 
 @pyffi.raw(name="len")
@@ -603,6 +624,7 @@ def module(context):
         "list": l_list,
         "join": l_join,
         "get": l_get,
+        "slice": l_slice,
         "keys": l_keys,
         "values": l_values,
         "append": l_append,

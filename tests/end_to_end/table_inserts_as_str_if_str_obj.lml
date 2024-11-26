@@ -1,0 +1,6 @@
+let t = {x: 5};
+set t "x" 7;
+if (get t "x" != 7 || t.x != 7) {
+    panic "oh no";
+};
+println (t.x);
