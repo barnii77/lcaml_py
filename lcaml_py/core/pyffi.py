@@ -1,10 +1,9 @@
 import functools
-from typing import Callable
+from typing import Callable, Any, Optional, Dict
 from . import extern_python as extern_python
 from .interpreter_types import DType, Object
 from . import lcaml_expression as lcaml_expression
 from . import parser_types as parser_types
-from . import interpreter
 from . import interpreter_vm as interpreter_vm_mod
 from .lcaml_lexer import Syntax
 
@@ -13,10 +12,20 @@ COMPYLA_IS_EXTERN_MAGIC_ATTRIBUTE_NAME = "_e6c50da35e8f9284c183e69b"
 COMPILE_WITH_CONTEXT_LEAKING = True
 
 
-def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
+def _lcaml_to_python(
+    lcaml_obj, interpreter_vm=None, _prev_values: Optional[Dict[int, Any]] = None
+):
     if lcaml_obj is None:
         return None
-    elif lcaml_obj.type == DType.INT:
+
+    if _prev_values is None:
+        _prev_values = {}
+
+    # this is a mechanism to allow conversion of cyclic/self-referential objects
+    if id(lcaml_obj.value) in _prev_values:
+        return _prev_values[id(lcaml_obj.value)]
+
+    if lcaml_obj.type == DType.INT:
         return int(lcaml_obj.value)
     elif lcaml_obj.type == DType.FLOAT:
         return float(lcaml_obj.value)
@@ -27,10 +36,11 @@ def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
     elif lcaml_obj.type == DType.TABLE:
         # Convert LCaml Table to Python dict
         table = lcaml_obj.value
-        return {
-            key: _lcaml_to_python(Object(val.type, val), interpreter_vm)
-            for key, val in table.fields.items()
-        }
+        out_dict = {}
+        _prev_values[id(lcaml_obj.value)] = out_dict
+        for key, val in table.fields.items():
+            out_dict[key] = _lcaml_to_python(Object(val.type, val), interpreter_vm, _prev_values)
+        return out_dict
     elif lcaml_obj.type == DType.UNIT:
         return None
     elif lcaml_obj.type == DType.EXTERN_PYTHON:
@@ -45,9 +55,11 @@ def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
         lcaml_func = lcaml_obj.value
 
         def vm_wrapper(*args):
-            args = [lcaml_expression.ObjectFakeAst(_python_to_lcaml(arg)) for arg in args]
+            args = [
+                lcaml_expression.ObjectFakeAst(_python_to_lcaml(arg)) for arg in args
+            ]
             func_call = lcaml_expression.FunctionCall(lcaml_func, args)
-            return func_call.resolve(interpreter_vm.context)
+            return _lcaml_to_python(func_call.resolve(interpreter_vm.context))
 
         return vm_wrapper
     elif lcaml_obj.type == DType.STRUCT_TYPE:
@@ -58,46 +70,65 @@ def _lcaml_to_python(lcaml_obj, interpreter_vm=None):
         return lcaml_obj.value
     elif lcaml_obj.type == DType.LIST:
         lcaml_list = lcaml_obj.value
-        return [_lcaml_to_python(item, interpreter_vm) for item in lcaml_list.values]
+        out_list = []
+        _prev_values[id(lcaml_obj.value)] = out_list
+        for item in lcaml_list.values:
+            out_list.append(_lcaml_to_python(item, interpreter_vm, _prev_values))
+        return out_list
     else:
         raise TypeError("Unsupported LCaml type")
 
 
-def _python_to_lcaml(py_obj, interpreter_vm=None, wrap_extern_py=True):
-    # NOTE: isinstance(True, int) returns True (and maybe some other weird stuff), therefore, use exact types
+def _python_to_lcaml(
+    py_obj,
+    interpreter_vm=None,
+    wrap_extern_py=True,
+    _prev_values: Optional[Dict[int, Any]] = None,
+):
     if py_obj is None:
-        return Object(DType.UNIT, None)
-    elif type(py_obj) is int:
-        return Object(DType.INT, py_obj)
+        ret_obj = Object(DType.UNIT, None)
+
+    if _prev_values is None:
+        _prev_values = {}
+
+    # this is a mechanism to allow conversion of cyclic/self-referential objects
+    if id(py_obj) in _prev_values:
+        return _prev_values[id(py_obj)]
+
+    # NOTE: isinstance(True, int) returns True (and maybe some other weird stuff), therefore, use exact types
+    if type(py_obj) is int:
+        ret_obj = Object(DType.INT, py_obj)
     elif type(py_obj) is float:
-        return Object(DType.FLOAT, py_obj)
+        ret_obj = Object(DType.FLOAT, py_obj)
     elif type(py_obj) is str:
-        return Object(DType.STRING, py_obj)
+        ret_obj = Object(DType.STRING, py_obj)
     elif type(py_obj) is bool:
-        return Object(DType.BOOL, py_obj)
+        ret_obj = Object(DType.BOOL, py_obj)
     elif type(py_obj) is dict:
         # Convert Python dict to LCaml Table
-        fields = {
-            key: _python_to_lcaml(val, interpreter_vm, wrap_extern_py)
-            for key, val in py_obj.items()
-        }  # Assuming all values are strings
-        return Object(DType.TABLE, lcaml_expression.Table(fields))
+        fields = {}
+        ret_obj = Object(DType.TABLE, lcaml_expression.Table(fields))
+        _prev_values[id(py_obj)] = ret_obj
+        for key, val in py_obj.items():
+            fields[key] = _python_to_lcaml(val, interpreter_vm, wrap_extern_py, _prev_values)
     elif hasattr(py_obj, "__call__"):
-        return Object(
+        ret_obj = Object(
             DType.EXTERN_PYTHON,
             interface(py_obj, interpreter_vm) if wrap_extern_py else py_obj,
         )
     elif type(py_obj) is set and all(isinstance(item, str) for item in py_obj):
         # Convert Python list of field names to LCaml StructType
         fields = [parser_types.AstIdentifier(field) for field in py_obj]
-        return Object(DType.STRUCT_TYPE, lcaml_expression.StructType(fields))
+        ret_obj = Object(DType.STRUCT_TYPE, lcaml_expression.StructType(fields))
     elif type(py_obj) is list:
-        inner = [
-            _python_to_lcaml(item, interpreter_vm, wrap_extern_py) for item in py_obj
-        ]
-        return Object(DType.LIST, lcaml_expression.LList(inner))
+        inner = []
+        ret_obj = Object(DType.LIST, lcaml_expression.LList(inner))
+        _prev_values[id(py_obj)] = ret_obj
+        for item in py_obj:
+            inner.append(_python_to_lcaml(item, interpreter_vm, wrap_extern_py, _prev_values))
     else:
-        return Object(DType.PY_OBJ, py_obj)
+        ret_obj = Object(DType.PY_OBJ, py_obj)
+    return ret_obj
 
 
 def interface(
@@ -139,7 +170,8 @@ def interface(
                     raise TypeError(
                         f"{Syntax._vm_intrinsic} was overwritten with illegal value `{_interpreter_vm}`: intrinsic value must be an InterpreterVM"
                     )
-                py_args = [_lcaml_to_python(arg, _interpreter_vm) for arg in args]
+                _prev_values = {}
+                py_args = [_lcaml_to_python(arg, _interpreter_vm, _prev_values) for arg in args]
                 result = func(*py_args)
                 return _python_to_lcaml(result, _interpreter_vm)
 
@@ -204,7 +236,7 @@ def pymodule(func):
     def wrapper(context):
         exports = func(context)
         if not context.get("__compiled"):
-            return interpreter.lcamlify_vars(exports, wrap_extern_py=False)
+            return _python_to_lcaml(exports, wrap_extern_py=False)
         return exports
 
     return wrapper

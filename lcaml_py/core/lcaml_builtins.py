@@ -604,6 +604,13 @@ def l_locals(context, args):
     )
 
 
+@pyffi.raw(name="id")
+def l_id(context, args):
+    if len(args) != 1:
+        raise RuntimeError(f"expected 1 arg of any type, but got {len(args)}")
+    return interpreter_types.Object(interpreter_types.DType.INT, id(args[0]))
+
+
 @pyffi.pymodule
 def module(context):
     exports = {
@@ -651,5 +658,6 @@ def module(context):
         "py_exec": l_py_exec,
         "exec": l_exec,
         "locals": l_locals,
+        "id": l_id,
     }
     return exports

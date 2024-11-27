@@ -34,6 +34,15 @@ def call_lcaml_callback(lcb):
     return lcb(3)
 
 
+@pyffi.interface
+def use_cyclic_ds(cds):
+    print("cyclic_ds['table']", cds["table"])
+    out = {"y": {"z": -2}, **cds}
+    y = out["y"]
+    y["r"] = out
+    return out
+
+
 @pyffi.pymodule
 def module(context):
     d = {
@@ -41,5 +50,6 @@ def module(context):
         "test_pyffi_ext": test_pyffi_ext,
         "append_to_list": append_to_list,
         "call_lcaml_callback": call_lcaml_callback,
+        "use_cyclic_ds": use_cyclic_ds,
     }
     return d

@@ -11,7 +11,7 @@ _518b67e652531c5fe7e25d6b.setrecursionlimit(LCAML_RECURSION_LIMIT)
 lcaml_pyffi_mod.COMPILE_WITH_CONTEXT_LEAKING = COMPILE_WITH_CONTEXT_LEAKING
 
 _2706c619fe73f0cf112473c6 = exec
-_e9e8d4b193cfa45adf2725ec = locals
+_091d41be4c916bd540e8b292 = id
 _78da4a596a88bc5114f071ba = abs
 _c96c6d5be8d08a12e7b5cdc1 = input
 _ce953a0eb08246617b7f8494 = print
@@ -390,8 +390,6 @@ def py_exec(py_code, py_globs):
 
 @_881ecbfb15f7e6881a337113
 def exec(l_code, l_globs):
-    # interpreter = lcaml_interpreter_mod.Interpreter(l_code)
-    # interpreter.execute(l_globs)
     raise RuntimeError(
         "the lcaml exec function is not available in lcaml that has been compiled to python"
     )
@@ -408,6 +406,11 @@ def locals(*args):
 @_881ecbfb15f7e6881a337113
 def slice(iterable, start, end=None, step=1):
     return iterable[start:end:step]
+
+
+@_881ecbfb15f7e6881a337113
+def id(obj):
+    return _091d41be4c916bd540e8b292(obj)
 
 
 _ad7aaf167f237a94dc2c3ad2 = globals()

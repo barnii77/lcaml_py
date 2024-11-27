@@ -1,35 +1,20 @@
 import sys
+from typing import Optional
 from .lcaml_utils import LCAML_RECURSION_LIMIT
 from . import lcaml_lexer
 from . import lcaml_parser
 from . import lcaml_builtins
 from . import interpreter_vm
+from . import interpreter_types
 from .interpreter_types import Object, DType
 from . import lcaml_expression
-from .pyffi import _python_to_lcaml
-
-# from .parser_types import AstIdentifier
-# from .token_type import Token, TokenKind
-from typing import Optional
-
-
-def lcamlify_vars(
-    variables: dict[str, object], wrap_extern_py=True
-) -> "lcaml_expression.Table":
-    result = {}
-    for name, value in variables.items():
-        result[name] = (
-            lcamlify_vars(value, wrap_extern_py)
-            if isinstance(value, dict)
-            else _python_to_lcaml(value, wrap_extern_py=wrap_extern_py)
-        )
-    return lcaml_expression.Table(result)
 
 
 def get_builtins():
     b = lcaml_builtins.module({})
-    assert isinstance(b, lcaml_expression.Table)
-    return b.fields
+    assert isinstance(b, interpreter_types.Object)
+    assert isinstance(b.value, lcaml_expression.Table)
+    return b.value.fields
 
 
 class Interpreter:

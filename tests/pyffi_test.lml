@@ -21,4 +21,19 @@ if (cbr != "hello") {
     panic("wrong!");
 };
 
+let cyclic_ds = {x: 5};
+set cyclic_ds "table" cyclic_ds;
+
+let out_cds = (pymod.use_cyclic_ds) cyclic_ds;
+
+if (out_cds.y.z != -2) {
+    panic "incorrect value";
+};
+
+if (id (out_cds.y.r) != id out_cds) {
+    println (id (out_cds.y.r)) " vs id " (id out_cds);
+    println (out_cds.y.r) " vs table " out_cds;
+    panic "i done messed up";
+};
+
 return lst;
