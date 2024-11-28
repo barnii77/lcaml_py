@@ -131,23 +131,33 @@ def l_join(list_of_strings: list[str], join_elem: str):
 def l_get(context, args):
     if len(args) != 2:
         raise ValueError("get takes 2 arguments: table, key")
-    if args[0].type not in (
+    ty = args[0].type
+    if ty not in (
         interpreter_types.DType.TABLE,
         interpreter_types.DType.LIST,
+        interpreter_types.DType.STRING,
     ):
-        raise ValueError("argument 1 must be of type table and list")
+        raise ValueError("argument 1 must be of type table, list or string")
     iterable, key = args[0].value, args[1]
-    if args[0].type == interpreter_types.DType.LIST:
+    if ty == interpreter_types.DType.LIST:
         if key.type != interpreter_types.DType.INT:
             raise TypeError("argument 2 (key) must be of type int")
         index = key.value
         if index >= len(iterable.values):
             raise IndexError(f"index {index} out of range")
         return iterable.values[index]
-    key = key.value if key.type == interpreter_types.DType.STRING else key
-    if key not in iterable.fields:
-        return interpreter_types.Object(lcaml_expression.DType.UNIT, None)
-    return iterable.fields[key]
+    elif ty == interpreter_types.DType.STRING:
+        if key.type != interpreter_types.DType.INT:
+            raise TypeError("argument 2 (key) must be of type int")
+        index = key.value
+        if index >= len(iterable.value):
+            raise IndexError(f"index {index} out of range")
+        return interpreter_types.Object(interpreter_types.DType.STRING, iterable.value[index])
+    else:
+        key = key.value if key.type == interpreter_types.DType.STRING else key
+        if key not in iterable.fields:
+            return interpreter_types.Object(lcaml_expression.DType.UNIT, None)
+        return iterable.fields[key]
 
 
 @pyffi.raw(name="slice")
