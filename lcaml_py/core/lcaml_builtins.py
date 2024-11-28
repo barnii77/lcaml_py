@@ -6,7 +6,6 @@ from copy import deepcopy
 from . import interpreter as interpreter_mod
 from . import lcaml_expression as lcaml_expression
 from . import interpreter_types as interpreter_types
-from . import interpreter_vm as interpreter_vm
 from . import lcaml_lexer as lcaml_lexer
 from . import pyffi as pyffi
 from . import lcaml_debugger as lcaml_debugger
@@ -631,6 +630,7 @@ def module(context):
         "list": l_list,
         "join": l_join,
         "get": l_get,
+        "len": l_len,
         "slice": l_slice,
         "keys": l_keys,
         "values": l_values,
