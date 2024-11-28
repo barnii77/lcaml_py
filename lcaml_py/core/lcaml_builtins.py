@@ -4,11 +4,11 @@ import sys
 import os
 from copy import deepcopy
 from . import interpreter as interpreter_mod
-from . import lcaml_expression as lcaml_expression
-from . import interpreter_types as interpreter_types
-from . import lcaml_lexer as lcaml_lexer
-from . import pyffi as pyffi
-from . import lcaml_debugger as lcaml_debugger
+from . import lcaml_expression
+from . import interpreter_types
+from . import lcaml_lexer
+from . import pyffi
+from . import lcaml_debugger
 
 
 @pyffi.interface(name="print")
@@ -665,6 +665,23 @@ def l_id(context, args):
     return interpreter_types.Object(interpreter_types.DType.INT, id(args[0]))
 
 
+@pyffi.raw(name="update_bounds")
+def l_update_bounds(context, args):
+    if len(args) != 1:
+        raise RuntimeError("expected 1 argument")
+    func_obj = args[0]
+    if func_obj.type != interpreter_types.DType.FUNCTION:
+        raise TypeError(
+            f"expected argument of type function, got {interpreter_types.DType.name(func_obj.type)}"
+        )
+    func = func_obj.value
+    intersecting_keys = func.bounds.keys() & context.keys()
+    for key in intersecting_keys:
+        if func.bounds.get(key) is None:
+            func.bounds[key] = context[key]
+    return func_obj
+
+
 @pyffi.pymodule
 def module(context):
     exports = {
@@ -717,5 +734,6 @@ def module(context):
         "id": l_id,
         "copy": l_copy,
         "deep_copy": l_deep_copy,
+        "update_bounds": l_update_bounds,
     }
     return exports

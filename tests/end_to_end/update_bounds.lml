@@ -1,0 +1,50 @@
+let f_wrapper1 = |_| {
+    let f1 = |i| {
+        return f2 (i - 1);
+    };
+
+    let f2 = |j| {
+        if (j <= 0) {
+            return 0;
+        };
+        return f1 j;
+    };
+
+    update_bounds f1;
+    return f1;
+};
+
+let f_wrapper2 = |_| {
+    let f1 = |i| {
+        return f2 (i - 1);
+    };
+
+    let f2 = |j| {
+        if (j <= 0) {
+            return 0;
+        };
+        return f1 j;
+    };
+
+    return f1;
+};
+
+let fub = f_wrapper1 ();
+let fnub = f_wrapper2 ();
+
+let f2 = |j| {
+    if (j <= 0) {
+        return -1;
+    };
+    return fnub j;
+};
+
+let fub_out = fub 10;
+if (fub_out != 0) {
+    panic ("function with update_bounds produced incorrect result: " + string fub_out);
+};
+
+let fnub_out = fnub 10;
+if (fnub_out != -1) {
+    panic ("function without update_bounds produced incorrect result: " + string fnub_out);
+};

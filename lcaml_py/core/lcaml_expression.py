@@ -216,13 +216,15 @@ class Function(AstRelated, Resolvable):
                 + "\n"
                 + body_block
             )
+        symbols_used = ", ".join(map(lambda s: f'"{s}"', self.bounds.keys()))
         function_def = (
+            f"@_d6b5f6e2e1a192b4fd7cccb6({{k: _ad7aaf167f237a94dc2c3ad2.get(k) for k in ({symbols_used})}})\n"
             f"def {name}(_ad7aaf167f237a94dc2c3ad2, "
             + ", ".join(args)
             + f", {Syntax._this_intrinsic}):\n{indent(body_block)}\n{name}_self_referral_list = [0]"
         )
         value = (
-            "lambda _ad7aaf167f237a94dc2c3ad2, "
+            "_cf6a7c2c6ee4aefed721396c(lambda _ad7aaf167f237a94dc2c3ad2, "
             + ", ".join(arg for arg in args)
             + f": {name}("
             + (
@@ -231,7 +233,7 @@ class Function(AstRelated, Resolvable):
                 else "{}, "
             )
             + ", ".join(args)
-            + f", {name}_self_referral_list[0])"
+            + f", {name}_self_referral_list[0]), {name})"
         )
         populate_self_referral_list = f"{name}_self_referral_list[0] = {value}"
         return (

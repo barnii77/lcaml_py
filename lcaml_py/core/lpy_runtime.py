@@ -33,6 +33,28 @@ _252813b4c8c5b033423ac5ab = breakpoint
 __compiled = True
 
 
+def _cf6a7c2c6ee4aefed721396c(lamb, func):
+    lamb.bounds = func.bounds
+    return lamb
+
+
+def _d6b5f6e2e1a192b4fd7cccb6(bounds):
+    def decorator(func):
+        class Wrapper:
+            def __init__(self):
+                self.bounds = bounds
+
+            def __call__(self, context, *args):
+                for k, v in self.bounds.items():
+                    if v is not None:
+                        context[k] = v
+                return func(context, *args)
+
+        return Wrapper()
+
+    return decorator
+
+
 def _6e8be7d82f8a724d77d4d12c(func):  # mark function as pyffi function
     setattr(func, "_e6c50da35e8f9284c183e69b", 0)
     return func
@@ -444,6 +466,18 @@ def copy(thing):
 @_881ecbfb15f7e6881a337113
 def deep_copy(thing):
     return _f676713508a2d8f20081f0fa(thing)
+
+
+@_6e8be7d82f8a724d77d4d12c
+def update_bounds(*args):
+    if COMPILE_WITH_CONTEXT_LEAKING:
+        context, func = args
+        for k, v in func.bounds.items():
+            if v is None:
+                func.bounds[k] = context.get(k)
+    else:
+        func, = args
+    return func
 
 
 _ad7aaf167f237a94dc2c3ad2 = globals()
