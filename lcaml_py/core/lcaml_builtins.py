@@ -187,14 +187,18 @@ def l_len(context, args):
     if args[0].type not in (
         interpreter_types.DType.TABLE,
         interpreter_types.DType.LIST,
+        interpreter_types.DType.STRING,
     ):
-        raise ValueError("argument 1 must be of type table or list")
+        raise ValueError("argument 1 must be of type table, list or string")
     iterable = args[0].value
-    if args[0].type == interpreter_types.DType.LIST:
-        return interpreter_types.Object(
-            interpreter_types.DType.INT, len(iterable.values)
-        )
-    return interpreter_types.Object(interpreter_types.DType.INT, len(iterable.fields))
+    ty = args[0].type
+    if ty == interpreter_types.DType.LIST:
+        length = len(iterable.values)
+    elif ty == interpreter_types.DType.STRING:
+        length = len(iterable.value)
+    else:
+        length = len(iterable.fields)
+    return interpreter_types.Object(interpreter_types.DType.INT, length)
 
 
 @pyffi.raw(name="keys")
