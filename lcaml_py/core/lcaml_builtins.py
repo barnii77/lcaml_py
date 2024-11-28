@@ -135,7 +135,7 @@ def l_get(context, args):
         interpreter_types.DType.TABLE,
         interpreter_types.DType.LIST,
     ):
-        raise ValueError("argument 1 (table) must be of type table")
+        raise ValueError("argument 1 must be of type table and list")
     iterable, key = args[0].value, args[1]
     if args[0].type == interpreter_types.DType.LIST:
         if key.type != interpreter_types.DType.INT:
@@ -178,7 +178,7 @@ def l_len(context, args):
         interpreter_types.DType.TABLE,
         interpreter_types.DType.LIST,
     ):
-        raise ValueError("argument 1 (table) must be of type table or list")
+        raise ValueError("argument 1 must be of type table or list")
     iterable = args[0].value
     if args[0].type == interpreter_types.DType.LIST:
         return interpreter_types.Object(
