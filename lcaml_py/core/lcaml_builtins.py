@@ -92,11 +92,13 @@ def l_set(context, args):
         if key.type != interpreter_types.DType.INT:
             raise TypeError("argument 2 (key) must be of type int")
         index = key.value
-        if index >= len(iterable.values):
+        if index >= len(iterable):
             raise IndexError(f"index {index} out of range")
-        iterable.values[index] = value
+        iterable[index] = value
     else:
-        iterable.fields[key.value if key.type == interpreter_types.DType.STRING else key] = value
+        iterable.fields[
+            key.value if key.type == interpreter_types.DType.STRING else key
+        ] = value
     return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
@@ -112,18 +114,41 @@ def l_list(context, args):
         raise TypeError("argument 1 (iter) must be of type list, struct_type, string")
     if args[0].type == interpreter_types.DType.LIST:
         return args[0]
-    elif args[0].type in (
-        interpreter_types.DType.STRING,
-        interpreter_types.DType.STRUCT_TYPE,
-    ):
+    elif args[0].type == interpreter_types.DType.STRUCT_TYPE:
         return interpreter_types.Object(
-            interpreter_types.DType.LIST, list(args[0].value.value)
+            interpreter_types.DType.LIST, list(args[0].value.fields)
         )
-    return interpreter_types.Object(interpreter_types.DType.UNIT, None)
+    else:
+        return interpreter_types.Object(
+            interpreter_types.DType.LIST,
+            [
+                interpreter_types.Object(interpreter_types.DType.STRING, c)
+                for c in list(args[0].value)
+            ],
+        )
+
+
+@pyffi.raw(name="copy")
+def l_copy(context, args):
+    if len(args) != 1:
+        raise ValueError("copy takes 1 argument: thing")
+    ty = args[0].type
+    v = args[0].value
+    if ty == interpreter_types.DType.LIST:
+        return interpreter_types.Object(ty, v.copy())
+    elif ty in (interpreter_types.DType.TABLE, interpreter_types.DType.STRUCT_TYPE):
+        return interpreter_types.Object(ty, v.fields.copy())
+    else:
+        return interpreter_types.Object(ty, v)
+
+
+@pyffi.interface(name="deep_copy")
+def l_deep_copy(thing):  # pyffi does deep copy when converting to/from python values
+    return thing
 
 
 @pyffi.interface(name="join")
-def l_join(list_of_strings: list[str], join_elem: str):
+def l_join(list_of_strings: list[str], join_elem: str = ""):
     return join_elem.join(list_of_strings)
 
 
@@ -143,16 +168,16 @@ def l_get(context, args):
         if key.type != interpreter_types.DType.INT:
             raise TypeError("argument 2 (key) must be of type int")
         index = key.value
-        if index >= len(iterable.values):
+        if index >= len(iterable):
             raise IndexError(f"index {index} out of range")
-        return iterable.values[index]
+        return iterable[index]
     elif ty == interpreter_types.DType.STRING:
         if key.type != interpreter_types.DType.INT:
             raise TypeError("argument 2 (key) must be of type int")
         index = key.value
-        if index >= len(iterable.value):
+        if index >= len(iterable):
             raise IndexError(f"index {index} out of range")
-        return interpreter_types.Object(interpreter_types.DType.STRING, iterable.value[index])
+        return interpreter_types.Object(interpreter_types.DType.STRING, iterable[index])
     else:
         key = key.value if key.type == interpreter_types.DType.STRING else key
         if key not in iterable.fields:
@@ -192,10 +217,8 @@ def l_len(context, args):
         raise ValueError("argument 1 must be of type table, list or string")
     iterable = args[0].value
     ty = args[0].type
-    if ty == interpreter_types.DType.LIST:
-        length = len(iterable.values)
-    elif ty == interpreter_types.DType.STRING:
-        length = len(iterable.value)
+    if ty in (interpreter_types.DType.LIST, interpreter_types.DType.STRING):
+        length = len(iterable)
     else:
         length = len(iterable.fields)
     return interpreter_types.Object(interpreter_types.DType.INT, length)
@@ -234,7 +257,20 @@ def l_append(context, args):
     if not args[0].type == interpreter_types.DType.LIST:
         raise ValueError("argument 1 (list) must be of type list")
     list_, value = args[0].value, args[1]
-    list_.values.append(value)
+    list_.append(value)
+    return interpreter_types.Object(interpreter_types.DType.UNIT, None)
+
+
+@pyffi.raw(name="insert")
+def l_insert(context, args):
+    if len(args) != 3:
+        raise ValueError("append takes 3 arguments: list, index, value")
+    if not args[0].type == interpreter_types.DType.LIST:
+        raise ValueError("argument 1 (list) must be of type list")
+    if not args[1].type == interpreter_types.DType.INT:
+        raise ValueError("argument 2 (index) must be of type int")
+    list_, index, value = args[0].value, args[1].value, args[2]
+    list_.insert(index, value)
     return interpreter_types.Object(interpreter_types.DType.UNIT, None)
 
 
@@ -246,12 +282,12 @@ def l_pop(context, args):
         raise ValueError("argument 1 (list) must be of type list")
     list_ = args[0].value
     if len(args) == 1:
-        ret = list_.values.pop()
+        ret = list_.pop()
     else:
         if args[1].type != interpreter_types.DType.INT:
             raise ValueError("argument 2 (index) must be of type int")
         idx = args[1].value
-        ret = list_.values.pop(idx)
+        ret = list_.pop(idx)
     if not isinstance(ret, interpreter_types.Object):
         raise RuntimeError("internal error")
     return ret
@@ -649,6 +685,7 @@ def module(context):
         "keys": l_keys,
         "values": l_values,
         "append": l_append,
+        "insert": l_insert,
         "pop": l_pop,
         "import_lcaml": l_import_lcaml,
         "import_glob": l_import_glob,
@@ -673,5 +710,7 @@ def module(context):
         "exec": l_exec,
         "locals": l_locals,
         "id": l_id,
+        "copy": l_copy,
+        "deep_copy": l_deep_copy,
     }
     return exports

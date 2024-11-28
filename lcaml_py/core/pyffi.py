@@ -72,7 +72,7 @@ def _lcaml_to_python(
         lcaml_list = lcaml_obj.value
         out_list = []
         _prev_values[id(lcaml_obj.value)] = out_list
-        for item in lcaml_list.values:
+        for item in lcaml_list:
             out_list.append(_lcaml_to_python(item, interpreter_vm, _prev_values))
         return out_list
     else:
@@ -122,7 +122,7 @@ def _python_to_lcaml(
         ret_obj = Object(DType.STRUCT_TYPE, lcaml_expression.StructType(fields))
     elif type(py_obj) is list:
         inner = []
-        ret_obj = Object(DType.LIST, lcaml_expression.LList(inner))
+        ret_obj = Object(DType.LIST, inner)
         _prev_values[id(py_obj)] = ret_obj
         for item in py_obj:
             inner.append(_python_to_lcaml(item, interpreter_vm, wrap_extern_py, _prev_values))

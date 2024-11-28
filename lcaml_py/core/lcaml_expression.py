@@ -1124,7 +1124,7 @@ class LList(AstRelated, Resolvable):
     def resolve(self, context: Context):
         for i, expression in enumerate(self.values):
             self.values[i] = expression.resolve(context)
-        return Object(DType.LIST, self)
+        return Object(DType.LIST, self.values)
 
     @classmethod
     def from_stream(cls, stream: TokenStream, syntax: Syntax = Syntax()):

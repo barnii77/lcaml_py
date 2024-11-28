@@ -4,12 +4,13 @@ from inspect import signature as _1a2fc26dc7ea5a2a4748b7cb
 import sys as _518b67e652531c5fe7e25d6b
 import os as _840a8dcfeae95966a870b0b5
 import time as _336074805fc853987abe6f7f
+from copy import deepcopy
 from lcaml_py.core import pyffi as lcaml_pyffi_mod
-from lcaml_py.core import interpreter as lcaml_interpreter_mod
 
 _518b67e652531c5fe7e25d6b.setrecursionlimit(LCAML_RECURSION_LIMIT)
 lcaml_pyffi_mod.COMPILE_WITH_CONTEXT_LEAKING = COMPILE_WITH_CONTEXT_LEAKING
 
+_f676713508a2d8f20081f0fa = deepcopy
 _2706c619fe73f0cf112473c6 = exec
 _091d41be4c916bd540e8b292 = id
 _78da4a596a88bc5114f071ba = abs
@@ -171,7 +172,15 @@ def bool(x):
 
 @_881ecbfb15f7e6881a337113
 def get(thing, key):
-    return thing[key] if key in thing else _dc937b59892604f5a86ac969
+    if _4a11dbf5131539804348ceb5(thing, _6ab47d70854a8c690a0c2035):
+        return thing[key] if key in thing else _dc937b59892604f5a86ac969
+    elif _4a11dbf5131539804348ceb5(
+        thing, (_a330395cc0a53ad120773654, _8c25cb3686462e9a86d2883c)
+    ):
+        return thing[key]
+    raise TypeError(
+        f"unsupported type {type(thing)}: supports only list, string and dict"
+    )
 
 
 @_881ecbfb15f7e6881a337113
@@ -185,7 +194,7 @@ def list(thing):
 
 
 @_881ecbfb15f7e6881a337113
-def join(list_of_strings, join_elem):
+def join(list_of_strings, join_elem=""):
     return join_elem.join(list_of_strings)
 
 
@@ -210,12 +219,20 @@ def append(list, thing):
 
 
 @_881ecbfb15f7e6881a337113
-def pop(list, index):
+def insert(list, index, thing):
+    list.insert(index, thing)
+
+
+@_881ecbfb15f7e6881a337113
+def pop(list, index=-1):
     list.pop(index)
 
 
 @_881ecbfb15f7e6881a337113
-def fuse(thing1, thing2):
+def fuse(thing1, thing2, inplace=False):
+    if inplace:
+        thing1.update(thing2)
+        return thing1
     return {**thing1, **thing2}
 
 
@@ -279,7 +296,7 @@ def import_py(*args):
 
 
 @_881ecbfb15f7e6881a337113
-def exit(code):
+def exit(code=0):
     _518b67e652531c5fe7e25d6b.exit(code)
 
 
@@ -346,8 +363,8 @@ def is_defined(*args):
 
 
 @_881ecbfb15f7e6881a337113
-def abs(prompt):
-    return _78da4a596a88bc5114f071ba(prompt)
+def abs(x):
+    return _78da4a596a88bc5114f071ba(x)
 
 
 @_881ecbfb15f7e6881a337113
@@ -411,6 +428,22 @@ def slice(iterable, start, end=None, step=1):
 @_881ecbfb15f7e6881a337113
 def id(obj):
     return _091d41be4c916bd540e8b292(obj)
+
+
+@_881ecbfb15f7e6881a337113
+def copy(thing):
+    if _4a11dbf5131539804348ceb5(thing, _6ab47d70854a8c690a0c2035):
+        return {k: v for k, v in thing.items()}
+    elif _4a11dbf5131539804348ceb5(thing, _a330395cc0a53ad120773654):
+        return [v for v in thing]
+    elif _4a11dbf5131539804348ceb5(thing, _6ee0eb490ff832101cf82a3d):
+        return {v for v in thing}
+    return thing
+
+
+@_881ecbfb15f7e6881a337113
+def deep_copy(thing):
+    return _f676713508a2d8f20081f0fa(thing)
 
 
 _ad7aaf167f237a94dc2c3ad2 = globals()
