@@ -191,12 +191,17 @@ def l_slice(context, args):
         raise RuntimeError(
             f"slice takes 2, 3 or 4 arguments (iterable, start, end?, step?), but got {len(args)}"
         )
+    if not all(arg.type in (interpreter_types.DType.INT, interpreter_types.DType.UNIT) for arg in args[1:]):
+        raise TypeError("all index arguments (arg 2, 3, 4) must be integer or unit type")
     if len(args) == 2:
         iterable, start, end, step = *args, None, 1
+        start = start.value
     elif len(args) == 3:
         iterable, start, end, step = *args, 1
+        start, end = start.value, end.value
     else:
         iterable, start, end, step = args
+        start, end, step = start.value, end.value, step.value
     if iterable.type in (interpreter_types.DType.LIST, interpreter_types.DType.STRING):
         return interpreter_types.Object(iterable.type, iterable.value[start:end:step])
     else:
