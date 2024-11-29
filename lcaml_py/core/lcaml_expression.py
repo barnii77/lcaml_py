@@ -1,4 +1,5 @@
 import itertools
+from copy import deepcopy
 
 from . import lcaml_parser as lcaml_parser
 from . import parser_types as parser_types
@@ -796,8 +797,8 @@ class Function(AstRelated, Resolvable):
         bb_entry = builder.append_basic_block("entry")
         builder.position_at_end(bb_entry)
 
-        for v, alloca in zip(func.args, vars.values()):
-            builder.store(v, alloca)
+        for v, arg in zip(func.args, self.arguments):
+            builder.store(v, vars[arg.name])
         try:
             self._jit_compile(self.body, builder, dtypes, vars, context, bb_allocas)
             if must_insert_ret_void:
@@ -1053,7 +1054,7 @@ class StructType(AstRelated, Resolvable):
         )
 
     def resolve(self, context: Context):
-        return Object(DType.STRUCT_TYPE, self)
+        return Object(DType.STRUCT_TYPE, deepcopy(self))
 
     @classmethod
     def from_stream(cls, stream: TokenStream):
@@ -1116,17 +1117,21 @@ class LList(AstRelated, Resolvable):
         return f"List({self.values})"
 
     def to_python(self):
-        pre_inserts, exprs, post_inserts = zip(
-            *[value.to_python() for value in self.values]
-        )
+        if self.values:
+            pre_inserts, exprs, post_inserts = zip(
+                *[value.to_python() for value in self.values]
+            )
+        else:
+            pre_inserts, exprs, post_inserts = [], [], []
         pre_insert = "\n".join(pre_inserts)
         post_insert = "\n".join(post_inserts)
         return pre_insert, "[" + ", ".join(exprs) + "]", post_insert
 
     def resolve(self, context: Context):
-        for i, expression in enumerate(self.values):
-            self.values[i] = expression.resolve(context)
-        return Object(DType.LIST, self.values)
+        resolved = []
+        for expression in self.values:
+            resolved.append(expression.resolve(context))
+        return Object(DType.LIST, resolved)
 
     @classmethod
     def from_stream(cls, stream: TokenStream, syntax: Syntax = Syntax()):
@@ -1189,10 +1194,16 @@ class Table(AstRelated, Resolvable, Gettable):
         return f"Table({self.fields})"
 
     def to_python(self):
-        keys = self.fields.keys()
-        pre_inserts, exprs, post_inserts = zip(
-            *[value.to_python() for value in self.fields.values()]
-        )
+        if self.fields:
+            keys, values = zip(*self.fields.items())
+        else:
+            keys, values = [], []
+        if values:
+            pre_inserts, exprs, post_inserts = zip(
+                *[value.to_python() for value in values]
+            )
+        else:
+            pre_inserts, exprs, post_inserts = [], [], []
         pre_insert = "\n".join(pre_inserts)
         post_insert = "\n".join(post_inserts)
         return (
@@ -1204,9 +1215,10 @@ class Table(AstRelated, Resolvable, Gettable):
         )
 
     def resolve(self, context: Context):
+        resolved = {}
         for field, expression in self.fields.items():
-            self.fields[field] = expression.resolve(context)
-        return Object(DType.TABLE, self)
+            resolved[field] = expression.resolve(context)
+        return Object(DType.TABLE, Table(resolved, self.type))
 
     def get(self, ident: "parser_types.AstIdentifier") -> Object:
         if not isinstance(ident, parser_types.AstIdentifier):
@@ -1214,6 +1226,12 @@ class Table(AstRelated, Resolvable, Gettable):
         if ident.name not in self.fields:
             raise ValueError(f"Field {ident.name} not found in struct {self}")
         return self.fields[ident.name]
+
+    def __eq__(self, value: object, /) -> bool:
+        return isinstance(value, Table) and self.fields == value.fields
+
+    def __neq__(self, value: object, /) -> bool:
+        return not isinstance(value, Table) or self.fields != value.fields
 
     @classmethod
     def from_stream(cls, stream: TokenStream, syntax: Syntax = Syntax()):
@@ -1458,8 +1476,9 @@ class FunctionCall(AstRelated, Resolvable):
                         func_ptr, ret_type = function.jit_compile_main(
                             arg_types, local_context
                         )
+                        assert all(b is None for b in function.bounds.values())
                         result = FunctionCall.c_call(
-                            func_ptr, list(bounds.values()), ret_type
+                            func_ptr, resolved_args, ret_type
                         )
                         return result
                     except JitCompError as e:

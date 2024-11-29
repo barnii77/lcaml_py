@@ -1,0 +1,25 @@
+-- lists
+let i = 3;
+while (i > 0) {
+    let l = [];
+    append l i;
+    let i = i - 1;
+};
+
+if (l != ([1])) {
+    panic "lists are not correctly decoupled from ast node";
+};
+
+-- tables
+let i = 3;
+while (i > 0) {
+    let t = {};
+    set t i i;
+    let i = i - 1;
+};
+
+let correct = {};
+set correct 1 1;
+if (t != correct) {
+    panic "tables are not correctly decoupled from ast node";
+};

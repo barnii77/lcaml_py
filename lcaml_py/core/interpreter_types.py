@@ -521,7 +521,7 @@ class Object(Resolvable):
         self.value = value
 
     def resolve(self, context):
-        return self.value
+        return self
 
     def __hash__(self):
         return hash((self.type, self.value))
@@ -530,7 +530,7 @@ class Object(Resolvable):
         return f"Object::{DType.name(self.type)}(" + str(self.value) + ")"
 
     def __repr__(self):
-        return "Object(" + str(self) + ")"
+        return str(self)
 
     def __eq__(self, other):
         if not isinstance(other, Object):
