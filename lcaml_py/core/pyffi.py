@@ -46,19 +46,14 @@ def _lcaml_to_python(
     elif lcaml_obj.type == DType.EXTERN_PYTHON:
         return lcaml_obj.value
     elif lcaml_obj.type == DType.FUNCTION:
-        # this is a bit more complex
-        # return an InterpreterVM Object wrapper that takes args and executes the function and links with the
-        # current VM context with the provided arguments
-
         if interpreter_vm is None:
             raise ValueError("interpreter_vm argument is required for function objects")
-        lcaml_func = lcaml_obj.value
 
         def vm_wrapper(*args):
             args = [
-                lcaml_expression.ObjectFakeAst(_python_to_lcaml(arg)) for arg in args
+                lcaml_expression.ObjectFakeAst(_python_to_lcaml(arg, interpreter_vm)) for arg in args
             ]
-            func_call = lcaml_expression.FunctionCall(lcaml_func, args)
+            func_call = lcaml_expression.FunctionCall(lcaml_obj, args)
             return _lcaml_to_python(func_call.resolve(interpreter_vm.context))
 
         return vm_wrapper
