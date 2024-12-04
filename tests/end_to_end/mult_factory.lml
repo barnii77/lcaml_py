@@ -1,5 +1,7 @@
-let mult_by_constant_function_factory = |z| {
-  let multiply_by_constant = |x| {
+let mult_by_constant_function_factory = |z|
+{
+  let multiply_by_constant = |x|
+  {
     return x * z;
   };
   
