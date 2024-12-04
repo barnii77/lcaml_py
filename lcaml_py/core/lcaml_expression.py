@@ -1770,9 +1770,13 @@ class Expression(AstRelated, Resolvable):
                     if not prev_pass_buffer:
                         raise ValueError("Unary operand must have right operand")
                     right = prev_pass_buffer.pop(0)
-                    thing.right = right  # thing is unary operation
                     if is_unary_minus:
-                        thing.left = Constant(Token(TokenKind.INTEGER, "0"))
+                        thing.is_unary = False
+                        this_pass_buffer.append(Constant(Token(TokenKind.INTEGER, "0")))
+                        this_pass_buffer.append(thing)
+                        this_pass_buffer.append(right)
+                        continue
+                    thing.right = right  # thing is unary operation
 
             this_pass_buffer.append(thing)
 

@@ -26,7 +26,7 @@ set cyclic_ds "table" cyclic_ds;
 
 let out_cds = (pymod.use_cyclic_ds) cyclic_ds;
 
-if (out_cds.y.z != -2) {
+if (out_cds.y.z != (-2)) {
     panic "incorrect value";
 };
 

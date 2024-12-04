@@ -15,6 +15,7 @@ class Syntax:
     """
     This class defines the syntax of the language by containing named regex patterns.
     """
+
     _this_intrinsic = r"__this"
     _vm_intrinsic = r"__vm"
     _interpreter_intrinsic = r"__interpreter"
@@ -36,8 +37,8 @@ class Syntax:
 
         # types
         self.unit_type = r"\(\)"
-        self.floating_point = r"-?[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
-        self.integer = r"-?[0-9]+"
+        self.floating_point = r"[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
+        self.integer = r"[0-9]+"
         self._true = r"true"
         self.boolean = r"true|false"
         self.string_literal = r"\"(.*?)\"", 1
@@ -45,9 +46,7 @@ class Syntax:
 
         # identifiers and builtins
         self.identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
-        self.function_args = (
-            f"\\|\\s*({self.identifier}\\s*)*{self.identifier}\\s*\\|"
-        )
+        self.function_args = f"\\|\\s*({self.identifier}\\s*)*{self.identifier}\\s*\\|"
 
         # operators
         operators = (
@@ -173,7 +172,9 @@ class Lexer:
                 if m:
                     break
             else:
-                raise LexError(f"Syntax Error on line {line}: No matching pattern for ```{code[:20]}.....```")
+                raise LexError(
+                    f"Syntax Error on line {line}: No matching pattern for ```{code[:20]}.....```"
+                )
 
             # save the match as a token
             token_value = m.group(group)

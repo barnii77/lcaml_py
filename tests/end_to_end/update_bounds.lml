@@ -45,6 +45,6 @@ if (fub_out != 0) {
 };
 
 let fnub_out = fnub 10;
-if (fnub_out != -1) {
+if (fnub_out != (-1)) {
     panic ("function without update_bounds produced incorrect result: " + string fnub_out);
 };
