@@ -1678,6 +1678,11 @@ class Expression(AstRelated, Resolvable):
                 fa = FieldAccess(None, None)  # reuse logic from Operation handling
                 first_pass_buffer.append(fa)
             elif token.type in TokenKind._builtin_types:
+                if token.type in (TokenKind.INTEGER, TokenKind.FLOATING_POINT) and '-' in token.value:
+                    op_token = Token(TokenKind.OPERATOR, "-", token.line)
+                    op = Operation(None, op_token, None)
+                    first_pass_buffer.append(op)
+                    token.value = token.value[token.value.index('-') + 1:]
                 first_pass_buffer.append(Constant(token, syntax))
             elif token.type == TokenKind.IDENTIFIER:
                 first_pass_buffer.append(Variable(parser_types.AstIdentifier(token)))
@@ -1764,7 +1769,7 @@ class Expression(AstRelated, Resolvable):
             thing = prev_pass_buffer.pop(0)
 
             if isinstance(thing, Operation):
-                is_unary_minus = thing.operation == OperationKind.SUB and not this_pass_buffer
+                is_unary_minus = thing.operation == OperationKind.SUB and (not this_pass_buffer or isinstance(this_pass_buffer[-1], Operation))
                 if thing.is_unary or is_unary_minus:
                     # NOTE: unary operands are always on the right
                     if not prev_pass_buffer:

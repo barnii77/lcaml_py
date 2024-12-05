@@ -37,8 +37,8 @@ class Syntax:
 
         # types
         self.unit_type = r"\(\)"
-        self.floating_point = r"[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
-        self.integer = r"[0-9]+"
+        self.floating_point = r"-?\s*[0-9]+\.[0-9]+"  # be careful - define this before int so it first checks this
+        self.integer = r"-?\s*[0-9]+"
         self._true = r"true"
         self.boolean = r"true|false"
         self.string_literal = r"\"(.*?)\"", 1
