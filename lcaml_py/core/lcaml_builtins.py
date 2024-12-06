@@ -722,6 +722,11 @@ def l_seekf(file, position):
     return file.seek(position)
 
 
+@pyffi.interface(name="path_exists")
+def l_path_exists(path: str):
+    return os.path.exists(path)
+
+
 @pyffi.pymodule
 def module(context):
     exports = {
@@ -780,5 +785,6 @@ def module(context):
         "readlinef": l_readlinef,
         "writef": l_writef,
         "seekf": l_seekf,
+        "path_exists": l_path_exists,
     }
     return exports

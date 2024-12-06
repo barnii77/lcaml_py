@@ -515,4 +515,9 @@ def seekf(file, position):
     return file.seek(position)
 
 
+@_881ecbfb15f7e6881a337113
+def path_exists(path: str):
+    return _840a8dcfeae95966a870b0b5.path.exists(path)
+
+
 _ad7aaf167f237a94dc2c3ad2 = globals()
