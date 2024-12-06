@@ -476,8 +476,43 @@ def update_bounds(*args):
             if v is None:
                 func.bounds[k] = context.get(k)
     else:
-        func, = args
+        (func,) = args
     return func
+
+
+@_881ecbfb15f7e6881a337113
+def openf(filepath, mode="r"):
+    return open(filepath, mode)
+
+
+@_881ecbfb15f7e6881a337113
+def closef(file):
+    return file.close()
+
+
+@_881ecbfb15f7e6881a337113
+def readablef(file):
+    return file.readable()
+
+
+@_881ecbfb15f7e6881a337113
+def readf(file, n=None):
+    return file.read(n)
+
+
+@_881ecbfb15f7e6881a337113
+def readlinef(file):
+    return file.readline()
+
+
+@_881ecbfb15f7e6881a337113
+def writef(file, x):
+    return file.write(x)
+
+
+@_881ecbfb15f7e6881a337113
+def seekf(file, position):
+    return file.seek(position)
 
 
 _ad7aaf167f237a94dc2c3ad2 = globals()

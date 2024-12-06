@@ -191,8 +191,13 @@ def l_slice(context, args):
         raise RuntimeError(
             f"slice takes 2, 3 or 4 arguments (iterable, start, end?, step?), but got {len(args)}"
         )
-    if not all(arg.type in (interpreter_types.DType.INT, interpreter_types.DType.UNIT) for arg in args[1:]):
-        raise TypeError("all index arguments (arg 2, 3, 4) must be integer or unit type")
+    if not all(
+        arg.type in (interpreter_types.DType.INT, interpreter_types.DType.UNIT)
+        for arg in args[1:]
+    ):
+        raise TypeError(
+            "all index arguments (arg 2, 3, 4) must be integer or unit type"
+        )
     if len(args) == 2:
         iterable, start, end, step = *args, None, 1
         start = start.value
@@ -682,6 +687,41 @@ def l_update_bounds(context, args):
     return func_obj
 
 
+@pyffi.interface(name="openf")
+def l_openf(filepath: str, mode="r"):
+    return open(filepath, mode)
+
+
+@pyffi.interface(name="closef")
+def l_closef(file):
+    return file.close()
+
+
+@pyffi.interface(name="readablef")
+def l_readablef(file):
+    return file.readable()
+
+
+@pyffi.interface(name="readf")
+def l_readf(file, n=None):
+    return file.read(n)
+
+
+@pyffi.interface(name="readlinef")
+def l_readlinef(file):
+    return file.readline()
+
+
+@pyffi.interface(name="writef")
+def l_writef(file, x):
+    return file.write(x)
+
+
+@pyffi.interface(name="seekf")
+def l_seekf(file, position):
+    return file.seek(position)
+
+
 @pyffi.pymodule
 def module(context):
     exports = {
@@ -690,10 +730,8 @@ def module(context):
         "input": l_input,
         "isinstance": l_is_instance,
         "islike": l_is_like,
-        "nl": interpreter_types.Object(interpreter_types.DType.STRING, "\n"),
-        "__compiled": interpreter_types.Object(
-            interpreter_types.DType.BOOL, False
-        ),  # this intrinsic signals that program is run by interpreter
+        "nl": "\n",
+        "__compiled": False,  # this intrinsic signals that program is run by interpreter
         "float": l_float,
         "int": l_int,
         "string": l_string,
@@ -735,5 +773,12 @@ def module(context):
         "copy": l_copy,
         "deep_copy": l_deep_copy,
         "update_bounds": l_update_bounds,
+        "openf": l_openf,
+        "closef": l_closef,
+        "readablef": l_readablef,
+        "readf": l_readf,
+        "readlinef": l_readlinef,
+        "writef": l_writef,
+        "seekf": l_seekf,
     }
     return exports

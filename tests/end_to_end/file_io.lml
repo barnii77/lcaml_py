@@ -1,0 +1,24 @@
+let file = openf "tests/file_io_test_file.txt" "w";
+writef file ("hello world" + nl + "second line");
+closef file;
+
+let file = openf "tests/file_io_test_file.txt";
+if (!readablef file) {
+    panic "should be readable";
+};
+let content = readlinef file;
+if (content != ("hello world" + nl)) {
+    println "read '" content "'";
+    panic "thats not what I wrote";
+};
+let content = content + readf file;
+if (content != ("hello world" + nl + "second line")) {
+    panic "wrong content";
+};
+
+seekf file 0;
+let content = readf file;
+if (content != ("hello world" + nl + "second line")) {
+    panic "wrong content";
+};
+closef file;
