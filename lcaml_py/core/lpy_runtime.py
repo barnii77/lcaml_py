@@ -30,6 +30,7 @@ _55df18d062878fb6d3f4a6d1 = ord
 _943723cd5955a5316f4364f7 = chr
 _252813b4c8c5b033423ac5ab = breakpoint
 
+nl = "\n"
 __compiled = True
 
 
