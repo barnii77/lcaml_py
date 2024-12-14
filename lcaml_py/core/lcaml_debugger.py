@@ -144,7 +144,7 @@ def cmd_lcaml_handler(
     new_interpreter = interpreter_mod.Interpreter(lc, file="<debugger lcaml command>")
     ret = new_interpreter.execute(vm.context)
     if ret is not None:
-        l_print.execute(None, (ret,))
+        l_print.execute({}, (ret,))
     return True
 
 
@@ -154,7 +154,7 @@ def cmd_print_handler(vm: "interpreter_mod.interpreter_vm.InterpreterVM", params
         return True
     var = params[0]
     if var in vm.context:
-        l_print.execute(None, (vm.context[var],))
+        l_print.execute({}, (vm.context[var],))
     else:
         print("<undefined>")
     return True
