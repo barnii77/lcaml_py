@@ -115,10 +115,15 @@ class InterpreterVM:
                             self.line_callbacks,
                             self.next_step_callbacks,
                             self.file,
-                            False,
+                            self._causes_traceback_entry,
                             self._enable_vm_callbacks,
                         )
+                        _causes_traceback_entry, self._causes_traceback_entry = (
+                            self._causes_traceback_entry,
+                            False,
+                        )
                         interpreter_vm.execute()
+                        self._causes_traceback_entry = _causes_traceback_entry
                         if interpreter_vm.return_value is not None:
                             self.return_value = interpreter_vm.return_value
                             self._propagate_local_next_step_callbacks()
@@ -136,10 +141,15 @@ class InterpreterVM:
                         self.line_callbacks,
                         self.next_step_callbacks,
                         self.file,
-                        False,
+                        self._causes_traceback_entry,
                         self._enable_vm_callbacks,
                     )
+                    _causes_traceback_entry, self._causes_traceback_entry = (
+                        self._causes_traceback_entry,
+                        False,
+                    )
                     interpreter_vm.execute()
+                    self._causes_traceback_entry = _causes_traceback_entry
                     if interpreter_vm.return_value is not None:
                         self.return_value = interpreter_vm.return_value
                         self._propagate_local_next_step_callbacks()
